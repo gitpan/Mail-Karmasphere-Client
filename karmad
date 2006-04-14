@@ -212,3 +212,41 @@ while (my $socket = $listen->accept()) {
 
 	exit;
 }
+
+__END__
+
+=head1 NAME
+
+karmad - Karma daemon for postfix and exim
+
+=head1 DESCRIPTION
+
+This is a small daemon which listens on a Unix domain socket and
+interfaces between Postfix or Exim and L<Mail::Karmasphere::Client>.
+
+See the sample configuration and startup files in the eg/ directory
+of the source distribution for more information.
+
+=head1 USAGE
+
+To write.
+
+=head1 BUGS
+
+This document is incomplete.
+
+=head1 SEE ALSO
+
+L<Mail::Karmasphere::Client>
+L<Mail::Karmasphere::Query>
+L<Mail::Karmasphere::Response>
+http://www.karmasphere.com/
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

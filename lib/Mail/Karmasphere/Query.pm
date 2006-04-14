@@ -143,13 +143,27 @@ sub composite {
 	my ($self, @composites) = @_;
 	for my $composite (@composites) {
 		# Validate
+		if (ref($composite)) {
+			die "Composite may not be a reference";
+		}
+		elsif ($composite =~ /^[0-9]+$/) {
+			warn "Using numeric ids for composites should be avoided.";
+		}
+		elsif ($composite =~ /\./) {
+		}
+		else {
+			warn "Composite name does not contain a dot. Invalid?";
+		}
 		push(@{ $self->{Composites} }, $composite);
 	}
 }
 
 sub composites {
 	my $self = shift;
-	$self->{Composites} = [ @_ ] if @_;
+	if (@_) {
+		$self->{Composites} = [ ];
+		$self->composite(@_);
+	}
 	return $self->{Composites};
 }
 
@@ -163,7 +177,10 @@ sub feed {
 
 sub feeds {
 	my $self = shift;
-	$self->{Feeds} = [ @_ ] if @_;
+	if (@_) {
+		$self->{Feeds} = [ ];
+		$self->feed(@_);
+	}
 	return $self->{Feeds};
 }
 
@@ -177,7 +194,10 @@ sub combiner {
 
 sub combiners {
 	my $self = shift;
-	$self->{Combiners} = [ @_ ] if @_;
+	if (@_) {
+		$self->{Combiners} = [ ];
+		$self->combiner(@_);
+	}
 	return $self->{Combiners};
 }
 
@@ -202,13 +222,13 @@ Mail::Karmasphere::Query - Karma Query Object
 =head1 DESCRIPTION
 
 The Perl Karma Client API consists of three objects: The Query, the
-Response and the Client. The user constructs a Query, passes it to
+Response and the Client. The user constructs a Query and passes it to
 a Client, which returns a Response. See L<Mail::Karmasphere::Client>
 for more information.
 
 =head1 CONSTRUCTOR
 
-The class method new(...) onstructs a new Query object. All arguments
+The class method new(...) constructs a new Query object. All arguments
 are optional. The following parameters are recognised as arguments
 to new():
 
@@ -318,6 +338,13 @@ This document is incomplete.
 L<Mail::Karmasphere::Client>
 L<Mail::Karmasphere::Response>
 http://www.karmasphere.com/
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 

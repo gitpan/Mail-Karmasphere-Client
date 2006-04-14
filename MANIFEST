@@ -1,3 +1,7 @@
+eg/exim/karma.acl
+eg/gentoo/conf.d/karmad
+eg/gentoo/init.d/karmad
+karmac
 karmaclient
 karmad
 lib/Mail/Karmasphere/Client.pm

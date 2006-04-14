@@ -114,7 +114,7 @@ Mail::Karmasphere::Response - Karmasphere Response Object
 =head1 DESCRIPTION
 
 The Perl Karma Client API consists of three objects: The Query, the
-Response and the Client. The user constructs a Query, passes it to
+Response and the Client. The user constructs a Query and passes it to
 a Client, which returns a Response. See L<Mail::Karmasphere::Client>
 for more information.
 
@@ -167,6 +167,15 @@ This document is incomplete.
 =head1 SEE ALSO
 
 L<Mail::Karmasphere::Client>
+L<Mail::Karmasphere::Query>
+http://www.karmasphere.com/
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 

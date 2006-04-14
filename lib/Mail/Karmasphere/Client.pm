@@ -17,7 +17,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.08";
+	$VERSION = "1.09";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -51,46 +51,6 @@ sub new {
 	}
 
 	return bless $self, $class;
-}
-
-sub _old_query {
-	my $self = shift;
-	my $args = ($#_ == 0) ? { %{ (shift) } } : { @_ };
-
-	my $ids = delete $args->{Identities};
-	my $feeds = delete $args->{Feeds};
-	my $composites = delete $args->{Composites} || delete $args->{Feedsets};
-	my $combiners = delete $args->{Combiners};
-	my $flags = delete $args->{Flags};
-
-	die "ids must be a listref" unless ref($ids) eq 'ARRAY';
-
-#	my $id = "q" . $ID++;
-	my $query = {
-#		_	=> $id,
-		i	=> $ids,
-	};
-
-	if (defined $feeds) {
-		die "feeds must be a listref"
-						unless ref($feeds) eq 'ARRAY';
-		$query->{f} = $feeds if @$feeds;
-	}
-	if (defined $composites) {
-		die "composites must be a listref"
-						unless ref($composites) eq 'ARRAY';
-		$query->{s} = $composites if @$composites;
-	}
-	if (defined $combiners) {
-		die "combiners must be a listref"
-						unless ref($combiners) eq 'ARRAY';
-		$query->{c} = $combiners if @$combiners;
-	}
-	if (defined $flags) {
-		die "flags must be an integer"
-						unless $flags =~ /^[0-9]+$/;
-		$query->{fl} = $flags;
-	}
 }
 
 sub query {
@@ -150,7 +110,7 @@ sub ask {
 
 =head1 NAME
 
-Mail::Karmasphere::Client - client for Karmasphere Reputation Server
+Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 
 =head1 SYNOPSIS
 
@@ -169,9 +129,13 @@ Mail::Karmasphere::Client - client for Karmasphere Reputation Server
 
 =head1 DESCRIPTION
 
+The Perl Karma Client API consists of three objects: The Query, the
+Response and the Client. The user constructs a Query and passes it
+to a Client, which returns a Response.
+
 =head1 CONSTRUCTOR
 
-The class method new(...) onstructs a new Client object. All arguments
+The class method new(...) constructs a new Client object. All arguments
 are optional. The following parameters are recognised as arguments
 to new():
 
@@ -210,9 +174,19 @@ L<Mail::Karmasphere::Query>.
 
 A convenience method, equivalent to
 
-	$client->ask(new Mail::Karmasphere::Query(...);
+	$client->ask(new Mail::Karmasphere::Query(...));
 
 See L<Mail::Karmasphere::Query> for more details.
+
+=back
+
+=head1 EXPORTS
+
+=over 4
+
+=item IDT_IP4_ADDRESS IDT_IP6_ADDRESS IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS IDT_URL
+
+Identity type constants.
 
 =back
 
@@ -225,6 +199,13 @@ This document is incomplete.
 L<Mail::Karmasphere::Query>
 L<Mail::Karmasphere::Response>
 http://www.karmasphere.com/
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 
