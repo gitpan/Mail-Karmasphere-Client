@@ -1,0 +1,214 @@
+#! /usr/bin/perl
+
+use strict;
+use warnings;
+use vars qw($PORT_DEFAULT);
+use Socket;
+use IO::Socket;
+use IO::Select;
+use Getopt::Long;
+use Mail::Karmasphere::Client qw(:all);
+
+$PORT_DEFAULT = 8555;
+
+sub usage {
+	print STDERR "Write me\n";
+}
+
+my $help;
+my ($slave, $user, $group, $port, $path);
+my $composite = "karmasphere.emailchecker";
+my $sockaddr = "/tmp/karmad";
+my ($socketuser,$socketgroup,$socketmode);
+
+my $result = GetOptions(
+	"help"			=> \$help,
+	"socket=s"		=> \$sockaddr,
+	"socketuser=s"	=> \$socketuser,
+	"socketgroup=s"	=> \$socketgroup,
+	"socketmode=s"	=> \$socketmode,
+	"slave=s"		=> \$slave,
+	"feedset=s"		=> \$composite,
+	"user=s"		=> \$user,
+	"group=s"		=> \$group,
+);
+
+if (!$result or $help) {
+	usage();
+	exit 0;
+}
+
+my @args;
+my $socktype;
+
+my $listen = undef;
+if ($sockaddr =~ /\D/) {
+	unlink($sockaddr) if -S $sockaddr;
+
+	$listen = new IO::Socket::UNIX(
+		Listen		=> 1,
+		Local		=> $sockaddr,
+			)
+		or die "Failed to create socket: $!";
+	my ($uid, $gid);
+
+	unless ($>) {
+		unless ($socketuser) {
+			$socketuser = 'nobody';
+		}
+		if ($socketuser =~ /\D/) {
+			$uid = getpwnam($socketuser)
+					or die "Socket user $socketuser not found: $!";
+		}
+		else {
+			$uid = $socketuser;
+		}
+
+		unless ($socketgroup) {
+			$socketgroup = 'nogroup';
+		}
+		if ($socketgroup =~ /\D/) {
+			$gid = getgrnam($socketgroup)
+					or die "Socket group $socketgroup not found: $!";
+		}
+		else {
+			$gid = $socketgroup;
+		}
+
+		chown($uid, $gid, $sockaddr)
+				or die "chown($socketuser=$uid, $socketgroup=$gid, $sockaddr) failed";
+	}
+	elsif ($socketuser or $socketgroup) {
+		warn "Cannot change socket owner as non-root.";
+	}
+
+	if (defined $socketmode) {
+		chmod(oct($socketmode), $sockaddr)
+				or die "chmod($socketmode, $sockaddr) failed";
+	}
+}
+else {
+	$listen = new IO::Socket::INET(
+		Listen		=> 1,
+		# LocalAddr	=> "127.0.0.1",
+		LocalPort	=> $sockaddr,
+		ReuseAddr	=> 1
+			)
+		or die "Failed to create socket: $!";
+}
+
+unless ($>) {
+	my ($uid, $gid);
+
+	unless ($group) {
+		$group = 'nobody';
+	}
+	if ($group =~ /\D/) {
+		$gid = getpwnam($group)
+				or die "Runtime group $group not found: $!";
+	}
+	else {
+		$gid = $group;
+	}
+	$( = $gid;
+	$) = $gid;
+	unless ($( == $gid and $) == $gid) {
+		die "Failed to change to group $group: $!\n";
+	}
+
+	unless ($user) {
+		$user = 'nobody';
+	}
+	if ($user =~ /\D/) {
+		$uid = getpwnam($user)
+				or die "Runtime user $user not found: $!";
+	}
+	else {
+		$uid = $user;
+	}
+	$< = $uid;
+	$> = $uid;
+	unless ($< == $uid and $> == $uid) {
+		die "Failed to change to user $user: $!\n";
+	}
+
+
+}
+elsif ($user or $group) {
+	warn "Cannot change to $user:$group not root.";
+}
+
+
+while (my $socket = $listen->accept()) {
+	if (fork) {
+		close $socket;
+		wait;
+		next;
+	}
+	elsif (fork) {
+		exit;
+	}
+
+	my $fh = select($socket);
+	$| = 1;
+	select($fh);
+
+	my %in;
+
+	# Read the request.
+	while (<$socket>) {
+		chomp;
+		chomp;
+		last if /^$/;
+		my ($lhs, $rhs) = split(/=/, $_, 2);
+		$in{lc $lhs} = $rhs;
+	}
+
+	# Debugging.
+	for my $key (sort keys %in) {
+		print STDERR "$key = $in{$key}\n" if -t STDERR;
+	}
+
+	my $query = new Mail::Karmasphere::Query(
+		Composite	=> $composite,
+	);
+
+	$query->identity($in{ip}, IDT_IP4_ADDRESS, "smtp.client-ip")
+			if exists $in{ip};
+	$query->identity($in{helo}, IDT_DOMAIN_NAME, "smtp.env.helo")
+			if exists $in{helo};
+	$query->identity($in{sender}, IDT_DOMAIN_NAME, "smtp.env.mail-from")
+			if exists $in{sender};
+
+	my ($shost, $sport) = split(/:/, $slave) if $slave;
+	my %mkcargs = (
+		PeerHost	=> $shost,
+		PeerPort	=> $sport,
+	);
+	my $client = new Mail::Karmasphere::Client(%mkcargs);
+
+	my $response = $client->ask($query);
+	print STDERR $response->as_string if -t STDERR;
+
+	my $value = $response->value($composite);
+	$value = 0 unless defined $value;
+	print $socket "value=", $value, "\n";
+	if ($value > 300) {
+		print $socket "opinion=good\n";
+	}
+	elsif ($value < -300) {
+		print $socket "opinion=bad\n";
+	}
+	else {
+		print $socket "opinion=neutral\n";
+	}
+	my $data = $response->data($composite);
+	$data = '(null data)' unless defined $data;
+	print $socket "data=", $data, "\n";
+
+	print STDERR "\n" if -t STDERR;
+	print $socket "\n";
+	close $socket;
+
+	exit;
+}

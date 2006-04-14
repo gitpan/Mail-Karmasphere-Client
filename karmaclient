@@ -1,0 +1,103 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Data::Dumper;
+use Mail::Karmasphere::Client qw(:all);
+
+my ($host, $port, $tcp, $single);
+my (@feeds, @composites, @combiners);
+my (@ip4, @ip6, @domain, @url, @email);
+
+my $result = GetOptions(
+	"host=s"		=> \$host,
+	"port=i"		=> \$port,
+	"feed=s"		=> \@feeds,
+	"composite=s"	=> \@composites,
+	"combiner=s"	=> \@combiners,
+	"ip4=s"			=> \@ip4,
+	"ip6=s"			=> \@ip6,
+	"domain=s"		=> \@domain,
+	"url=s"			=> \@url,
+	"email=s"		=> \@email,
+	"tcp"			=> \$tcp,
+	"single"		=> \$single,
+);
+
+@feeds = map { split(/[,:\s]/, $_) } @feeds;
+@feeds = map { +$_ } @feeds;
+@feeds = grep { $_ > 0 } @feeds;
+
+unless (@composites) {
+	@feeds = (4000..4010) unless @feeds;
+	@combiners = qw(default) unless @combiners;
+}
+
+if (!$result){
+	print << "EOH";
+Usage: $0 [--host=<slave.hostname.com>] [--port=<portnum>]
+    [--tcp]
+	[--feed=<feedid> ...]
+	[--composite=<compositename> ...]
+	[--combiner=<combinername> ...]
+    [--ip4=<ip4_addr>[=tag] ...] [--ip6=<ip6_addr>[=tag] ...]
+    [--domain=<domain_name>[=tag] ...]
+	[--url=<url>[=tag] ...] [--email=<email_addr>[=tag] ...]
+
+Example:
+  Query for an IP4 address and a domain in one packet:
+    $0 --ip4=123.45.6.7 --domain=spammer.com
+EOH
+	exit 1;
+}
+
+my @ids = ();
+my %ids = (
+	IDT_IP4_ADDRESS()	=> \@ip4,
+	IDT_IP6_ADDRESS()	=> \@ip6,
+	IDT_DOMAIN_NAME()	=> \@domain,
+	IDT_URL()			=> \@url,
+	IDT_EMAIL_ADDRESS()	=> \@email,
+);
+
+for my $type (keys %ids) {
+	for my $id (@{ $ids{$type} }) {
+		if ($id =~ /([^=])+=([a-z\.]+)/) {
+			push(@ids, [ $1, $type, $2 ]);
+		}
+		else {
+			push(@ids, [ $id, $type ]);
+		}
+	}
+}
+
+push(@ids, [ '127.0.0.2', IDT_IP4_ADDRESS ]) unless @ids;
+
+my %args = ();
+$args{PeerHost} = $host if $host;
+$args{PeerPort} = $port if $port;
+$args{Proto} = 'tcp' if $tcp;
+my $client = new Mail::Karmasphere::Client(%args);
+if ($single) {
+	for (@ids) {
+		my $query = new Mail::Karmasphere::Query(
+				Identities	=> [ $_ ],	# $_ is an ARRAY ref.
+				Feeds		=> \@feeds,
+				Composites	=> \@composites,
+				Combiners	=> \@combiners,
+					);
+		my $response = $client->ask($query);
+		print $response->as_string();
+	}
+}
+else {
+	my $query = new Mail::Karmasphere::Query(
+			Identities	=> \@ids,
+			Feeds		=> \@feeds,
+			Composites	=> \@composites,
+			Combiners	=> \@combiners,
+				);
+	my $response = $client->ask($query);
+	print $response->as_string();
+}
