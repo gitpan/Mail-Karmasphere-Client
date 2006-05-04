@@ -188,23 +188,30 @@ while (my $socket = $listen->accept()) {
 	my $client = new Mail::Karmasphere::Client(%mkcargs);
 
 	my $response = $client->ask($query);
-	print STDERR $response->as_string if -t STDERR;
 
-	my $value = $response->value($composite);
-	$value = 0 unless defined $value;
-	print $socket "value=", $value, "\n";
-	if ($value > 300) {
-		print $socket "opinion=good\n";
-	}
-	elsif ($value < -300) {
-		print $socket "opinion=bad\n";
+	if ($response) {
+		print STDERR $response->as_string if -t STDERR;
+
+		my $value = $response->value($composite);
+		$value = 0 unless defined $value;
+		print $socket "value=", $value, "\n";
+		if ($value > 300) {
+			print $socket "opinion=good\n";
+		}
+		elsif ($value < -300) {
+			print $socket "opinion=bad\n";
+		}
+		else {
+			print $socket "opinion=neutral\n";
+		}
+		my $data = $response->data($composite);
+		$data = '(null data)' unless defined $data;
+		print $socket "data=", $data, "\n";
 	}
 	else {
-		print $socket "opinion=neutral\n";
+		print STDERR "timeout\n" if -t STDERR;
+		print $socket "error=timeout\n";
 	}
-	my $data = $response->data($composite);
-	$data = '(null data)' unless defined $data;
-	print $socket "data=", $data, "\n";
 
 	print STDERR "\n" if -t STDERR;
 	print $socket "\n";
@@ -217,7 +224,7 @@ __END__
 
 =head1 NAME
 
-karmad - Karma daemon for postfix and exim
+karmad - Karmasphere daemon for postfix and exim
 
 =head1 DESCRIPTION
 
@@ -240,6 +247,7 @@ This document is incomplete.
 L<Mail::Karmasphere::Client>
 L<Mail::Karmasphere::Query>
 L<Mail::Karmasphere::Response>
+L<karmaclient>
 http://www.karmasphere.com/
 
 =head1 COPYRIGHT

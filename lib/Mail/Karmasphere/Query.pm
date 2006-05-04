@@ -5,7 +5,6 @@ use warnings;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS $ID);
 use Carp;
 use Exporter;
-use Mail::Karmasphere::Client qw(:all);
 
 BEGIN {
 	@ISA = qw(Exporter);
@@ -14,6 +13,8 @@ BEGIN {
 		'all'	=> \@EXPORT_OK,
 	);
 }
+
+use Mail::Karmasphere::Client qw(:all);
 
 $ID = 0;
 
@@ -28,9 +29,6 @@ sub new {
 
 	if (exists $args->{Id}) {
 		$self->id(delete $args->{Id});
-	}
-	else {
-		$self->id('q' . $ID++);
 	}
 
 	if (exists $args->{Identities}) {
@@ -112,7 +110,12 @@ sub guess_identity_type {
 
 sub id {
 	my $self = shift;
-	$self->{Id} = shift if @_;
+	if (@_) {
+		$self->{Id} = shift;
+	}
+	elsif (!defined $self->{Id}) {
+		$self->{Id} = 'q' . $ID++;
+	}
 	return $self->{Id};
 }
 
@@ -213,7 +216,7 @@ sub flags {
 
 =head1 NAME
 
-Mail::Karmasphere::Query - Karma Query Object
+Mail::Karmasphere::Query - Karmasphere Query Object
 
 =head1 SYNOPSIS
 

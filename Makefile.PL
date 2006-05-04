@@ -19,8 +19,9 @@ WriteMakefile(
     'VERSION_FROM'	=> 'lib/Mail/Karmasphere/Client.pm',
     'PREREQ_PM'		=> {
 				'Convert::Bencode'				=> 0,
-				# 'Class::Accessor'				=> 0,
 				'IO::Socket'					=> 0,
+				'IO::Select'					=> 0,
+				'Time::HiRes'					=> 0,
 			},
 	ABSTRACT_FROM => 'lib/Mail/Karmasphere/Client.pm',
 	AUTHOR     => 'Shevek <cpan@anarres.org>',

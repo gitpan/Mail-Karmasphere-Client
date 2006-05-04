@@ -1,0 +1,91 @@
+NAME
+    Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
+
+SYNOPSIS
+            use Mail::Karmasphere::Client qw(:all);
+
+            my $client = new Mail::Karmasphere::Client(
+                            PeerAddr        => '123.45.6.7',
+                            PeerPort        => 8666,
+                                    );
+
+            my $query = new Mail::Karmasphere::Query();
+            $query->identity('123.45.6.7', IDT_IP4_ADDRESS);
+            $query->composite('karmasphere.emailchecker');
+            my $response = $client->ask($query, 60);
+            print $response->as_string;
+
+            my $id = $client->send($query);
+            my $response = $client->recv($query, 60);
+            my $response = $client->recv($id, 60);
+
+            my $response = $client->query(
+                    Identities      => [ ... ]
+                    Composite       => 'karmasphere.emailchecker',
+                            );
+
+DESCRIPTION
+    The Perl Karma Client API consists of three objects: The Query, the
+    Response and the Client. The user constructs a Query and passes it to a
+    Client, which returns a Response.
+
+CONSTRUCTOR
+    The class method new(...) constructs a new Client object. All arguments
+    are optional. The following parameters are recognised as arguments to
+    new():
+
+    PeerAddr
+        The IP address or hostname to contact. See IO::Socket::INET. The
+        default is 'slave.karmasphere.com'.
+
+    PeerPort
+        The TCP or UDP to contact. See IO::Socket::INET. The default is
+        8666.
+
+    Proto
+        Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
+
+    Debug
+        Set to 1 to enable some wire-level debugging.
+
+METHODS
+    $response = $client->ask($query, $timeout)
+        Returns a Mail::Karmasphere::Response to a Mail::Karmasphere::Query.
+        This is equivalent to
+
+                $client->recv($client->send($query), $timeout)
+
+    $id = $client->send($query)
+        Sends a Mail::Karmasphere::Query to the server, and returns the id
+        of the query, which may be passed to recv().
+
+    $response = $client->recv($id, $timeout)
+        Returns a Mail::Karmasphere::Response to the query with id $id,
+        assuming that the query has already been sent using send(). If no
+        matching response is read before the timeout, undef is returned.
+
+    $response = $client->query(...)
+        A convenience method, equivalent to
+
+                $client->ask(new Mail::Karmasphere::Query(...));
+
+        See Mail::Karmasphere::Query for more details.
+
+EXPORTS
+    IDT_IP4_ADDRESS IDT_IP6_ADDRESS IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
+    IDT_URL
+        Identity type constants.
+
+BUGS
+    This document is incomplete.
+
+SEE ALSO
+    Mail::Karmasphere::Query Mail::Karmasphere::Response
+    http://www.karmasphere.com/
+
+COPYRIGHT
+    Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

@@ -88,7 +88,12 @@ if ($single) {
 				Combiners	=> \@combiners,
 					);
 		my $response = $client->ask($query);
-		print $response->as_string();
+		if ($response) {
+			print $response->as_string();
+		}
+		else {
+			print "Timeout or error\n";
+		}
 	}
 }
 else {
@@ -99,5 +104,46 @@ else {
 			Combiners	=> \@combiners,
 				);
 	my $response = $client->ask($query);
-	print $response->as_string();
+	if ($response) {
+		print $response->as_string();
+	}
+	else {
+		print "Timeout or error\n";
+	}
 }
+
+__END__
+
+=head1 NAME
+
+karmaclient - Karmasphere commandline query client
+
+=head1 DESCRIPTION
+
+A commandline query client which allows access to most of the
+features of L<Mail::Karmasphere::Client>.
+
+=head1 USAGE
+
+To write.
+
+=head1 BUGS
+
+This document is incomplete.
+
+=head1 SEE ALSO
+
+L<Mail::Karmasphere::Client>
+L<Mail::Karmasphere::Query>
+L<Mail::Karmasphere::Response>
+L<karmad>
+http://www.karmasphere.com/
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
