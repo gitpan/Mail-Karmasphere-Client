@@ -142,6 +142,13 @@ sub identities {
 	return $self->{Identities};
 }
 
+sub has_identities {
+	my $self = shift;
+	return undef unless exists $self->{Identities};
+	return undef unless @{ $self->{Identities} };
+	return 1;
+}
+
 sub composite {
 	my ($self, @composites) = @_;
 	for my $composite (@composites) {
@@ -170,6 +177,13 @@ sub composites {
 	return $self->{Composites};
 }
 
+sub has_composites {
+	my $self = shift;
+	return undef unless exists $self->{Composites};
+	return undef unless @{ $self->{Composites} };
+	return 1;
+}
+
 sub feed {
 	my ($self, @feeds) = @_;
 	for my $feed (@feeds) {
@@ -185,6 +199,13 @@ sub feeds {
 		$self->feed(@_);
 	}
 	return $self->{Feeds};
+}
+
+sub has_feeds {
+	my $self = shift;
+	return undef unless exists $self->{Feeds};
+	return undef unless @{ $self->{Feeds} };
+	return 1;
 }
 
 sub combiner {
@@ -204,6 +225,13 @@ sub combiners {
 	return $self->{Combiners};
 }
 
+sub has_combiners {
+	my $self = shift;
+	return undef unless exists $self->{Combiners};
+	return undef unless @{ $self->{Combiners} };
+	return 1;
+}
+
 sub flags {
 	my $self = shift;
 	if (@_) {
@@ -212,6 +240,13 @@ sub flags {
 		$self->{Flags} = $flags;
 	}
 	return $self->{Flags};
+}
+
+sub has_flags {
+	my $self = shift;
+	return undef unless exists $self->{Flags};
+	return undef unless defined $self->{Flags};
+	return 1;
 }
 
 =head1 NAME

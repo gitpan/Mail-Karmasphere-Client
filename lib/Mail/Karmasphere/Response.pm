@@ -97,7 +97,9 @@ sub as_string {
 			$out .= "Combiner '$_': verdict $value ($data)\n";
 		}
 		foreach (@{$self->facts}) {
-			$out .= "Feed '$_->{f}' opinion $_->{v} ($_->{d})\n";
+			my $d = $_->{d};
+			$d = "null data" unless defined $d;
+			$out .= "Feed '$_->{f}' opinion $_->{v} ($d)\n";
 		}
 	}
 	return $out;

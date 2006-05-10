@@ -20,10 +20,21 @@
 # limitations under the License.
 # </@LICENSE>
 
+loadplugin Mail::SpamAssassin::Plugin::Karmasphere
+
 ifplugin Mail::SpamAssassin::Plugin::Karmasphere
 
-karma KARMA_CONNECT_0_10        connect 0 10
-describe KARMA_CONNECT_0_10     Karmasphere Connect [0-10]
-score KARMA_CONNECT_0_10		0.1
+karma_range KARMA_CONNECT_POSITIVE	connect  0.1   1000
+karma_range KARMA_CONNECT_NEGATIVE	connect -1000 -0.1
+karma_range KARMA_CONTENT_POSITIVE	content  0.1   1000
+karma_range KARMA_CONTENT_NEGATIVE	content -1000 -0.1
+
+score	KARMA_CONNECT_POSITIVE  -1.0
+score	KARMA_CONNECT_NEGATIVE   1.0
+score	KARMA_CONTENT_POSITIVE  -2.0
+score	KARMA_CONTENT_NEGATIVE   2.0
+
+add_header all Karma-Connect _KARMASCORE(connect)_: _KARMADATA(connect)_
+add_header all Karma-Content _KARMASCORE(content)_: _KARMADATA(content)_
 
 endif # Mail::SpamAssassin::Plugin::Karmasphere

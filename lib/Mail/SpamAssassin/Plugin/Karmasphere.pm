@@ -3,7 +3,7 @@ package Mail::SpamAssassin::Plugin::Karmasphere;
 
 use strict;
 use warnings;
-use vars qw(@ISA);
+use vars qw(@ISA $CONNECT_FEEDSET $CONTENT_FEEDSET);
 use bytes;
 use Carp qw(confess);
 use Time::HiRes;
@@ -12,6 +12,8 @@ use Mail::SpamAssassin::Logger;
 use Mail::Karmasphere::Client qw(:ALL);
 
 @ISA = qw(Mail::SpamAssassin::Plugin);
+$CONNECT_FEEDSET = 'karmasphere.emailchecker';
+$CONTENT_FEEDSET = 'karmasphere.contentfilter';
 
 # constructor: register the eval rule and parse any config
 sub new {
@@ -37,29 +39,36 @@ sub set_config {
 	my ($self, $conf) = @_;
 	my @cmds = ();
 
-	push (@cmds, {
-		setting		=> 'karma_connect_feedset',
-		default		=> 'karmasphere.emailchecker',
-		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
-	});
-
-	push (@cmds, {
-		setting		=> 'karma_content_feedset',
-		default		=> 'karmasphere.contentfilter',
-		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
-	});
-
-	push (@cmds, {
-		setting		=> 'karma',
+	push(@cmds, {
+		setting		=> 'karma_feedset',
 		code		=> sub {
-			my ($self, $key, $value, $line) = @_;
+			my $self = shift;
+			my ($key, $value, $line) = @_;
+			if ($value =~ /^(\S+)\s+(\S+)$/) {
+				my ($context, $composite) = ($1, $2);
+				$self->{karma_feedset}->{$context} = $composite;
+			}
+			elsif (! length $value) {
+				return $Mail::SpamAssassin::Conf::MISSING_REQUIRED_VALUE;
+			}
+			else {
+				return $Mail::SpamAssassin::Conf::INVALID_VALUE;
+			}
+		},
+	});
+
+	push (@cmds, {
+		setting		=> 'karma_range',
+		code		=> sub {
+			my $self = shift;
+			my ($key, $value, $line) = @_;
 			if ($value =~ /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)$/) {
 				my ($rulename, $context, $min, $max) =
 								($1, $2, 0+$3, 0+$4);
 				$self->{karma_rules}->{$rulename} =
 								[ $context, $min, $max ];
 				$self->{parser}->add_test($rulename,
-						"check_karma_range('$context', $min, $max)",
+						"check_karma_range('$context', '$min', '$max')",
 						$Mail::SpamAssassin::Conf::TYPE_FULL_EVALS);
 			}
 			elsif (! length $value) {
@@ -87,7 +96,7 @@ sub set_config {
 
 	push (@cmds, {
 		setting		=> 'karma_timeout',
-		default		=> '60',
+		default		=> '15',
 		is_admin	=> 1,
 		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_NUMERIC
 	});
@@ -100,12 +109,113 @@ sub _karma_client {
 	my $conf = shift || $self->{main}{conf};
 	unless ($self->{Client}) {
 		$self->{Client} = new Mail::Karmasphere::Client (
-						# Debug	=> 1,
+						# Debug		=> 1,
 						PeerHost	=> $conf->{karma_host},
 						PeerPort	=> $conf->{karma_port},
 							);
 	}
 	return $self->{Client};
+}
+
+sub add_connect_authentication {
+	my ($self, $scanner, $query) = @_;
+
+	# XXX Make sure these are not preceded by any received: line.
+	my $authresults = $scanner->get('Authentication-Results');
+	if (defined $authresults) {
+		my @authresults = split(/[\r\n]+/, $authresults);
+		foreach my $line (@authresults) {
+			unless ($line =~ s/^\s*(\S+)\s*//) {
+				dbg("Invalid Authentication-Results header: $line");
+				next;
+			}
+			my $hostname = $1;
+			my @vals = split(/\s*;\s*/, $line);
+			my $identity = shift @vals;
+			unless ($identity =~ /^([^=]*)=(.*)/) {
+				dbg("Invalid Authentication-Results identity: $identity");
+				next;
+			}
+			my ($artype, $iddata) = ($1, $2);
+			my %checks = ();
+			my $pass = undef;
+			for my $val (@vals) {
+				unless ($val =~ /^([^=]*)=(.*)/) {
+					dbg("Invalid Authentication-Results result: $val");
+					next;
+				}
+				$checks{$1} = $2;
+				$pass++ if $2 =~ /^pass/;
+			}
+			my @tags;
+			my $idtype;
+			if ($artype eq 'smtp.mail') {
+				$idtype = IDT_EMAIL_ADDRESS;
+				push(@tags, SMTP_ENV_MAIL_FROM);
+			}
+			elsif ($artype eq 'header.from') {
+				$idtype = IDT_EMAIL_ADDRESS;
+				push(@tags, SMTP_HEADER_FROM_ADDRESS);
+			}
+			else {
+				$idtype = guess_identity_type($iddata);
+			}
+			push(@tags, AUTHENTIC) if $pass;
+			$query->identity($iddata, $idtype, @tags);
+			# print Dumper($hostname, $idtype, $iddata, \%checks);
+		}
+	}
+}
+
+sub add_connect_received {
+	my ($self, $scanner, $query) = @_;
+
+	if ($scanner->{num_relays_untrusted} > 0) {
+		my $lasthop = $scanner->{relays_untrusted}->[0];
+		# print STDERR "Last hop is " . Dumper($lasthop);
+		if (!defined $lasthop) {
+			dbg("karma: message was delivered entirely via trusted relays, not required");
+			return;
+		}
+		my $ip = $lasthop->{ip};
+		$query->identity($ip, IDT_IP4_ADDRESS, SMTP_CLIENT_IP)
+						if $ip;
+		my $helo = $lasthop->{lc_helo} || $lasthop->{lc_rdns};
+		$query->identity($helo, IDT_DOMAIN_NAME, SMTP_ENV_HELO)
+						if $helo;
+	}
+}
+
+sub add_connect_envfrom {
+	my ($self, $scanner, $query) = @_;
+
+	my $envfrom = $scanner->get('EnvelopeFrom:addr');
+	$query->identity($envfrom, IDT_EMAIL_ADDRESS, SMTP_ENV_MAIL_FROM)
+					if $envfrom;
+}
+
+sub add_connect_other {
+	my ($self, $scanner, $query) = @_;
+}
+
+sub add_content_urls {
+	my ($self, $scanner, $query) = @_;
+
+	my $uris = $scanner->get_uri_detail_list();
+	my %uris = ();
+	for my $data (values %$uris) {
+		my $cleaned = $data->{cleaned} or next;
+		my $uri = $cleaned->[1] or next;
+		$uris{$uri} = 1;
+	}
+
+	for my $uri (keys %uris) {
+		$query->identity($uri, IDT_URL);
+	}
+}
+
+sub add_content_other {
+	my ($self, $scanner, $query) = @_;
 }
 
 sub _karma_send {
@@ -114,42 +224,42 @@ sub _karma_send {
 	my $conf = $scanner->{conf};
 	my $client = $self->_karma_client($conf);
 
-	my $query_connect = new Mail::Karmasphere::Query();
-	$query_connect->composite($conf->{karma_connect_feedset});
-
 	# Now we have to navigate the twists and turns of the SpamAssassin
 	# API to retrieve the message metadata we want. This is largely
 	# inconsistent, and I hope it holds up.
 
-	if ($scanner->{num_relays_untrusted} > 0) {
-		my $lasthop = $scanner->{relays_untrusted}->[0];
-		if (!defined $lasthop) {
-			dbg("karma: message was delivered entirely via trusted relays, not required");
-			return;
+	# The connection-time dance
+	{
+		my $query = new Mail::Karmasphere::Query();
+		$query->composite($conf->{karma_feedset}->{connect}
+						|| $CONNECT_FEEDSET);
+
+		$self->add_connect_authentication($scanner, $query);
+		$self->add_connect_received($scanner, $query);
+		$self->add_connect_envfrom($scanner, $query);
+		$self->add_connect_other($scanner, $query);
+
+		if ($query->has_identities) {
+			my $qid = $client->send($query);
+			$scanner->{karma}->{id}->{connect} = $qid;
 		}
-		my $ip = $lasthop->{ip};
-		$query_connect->identity($ip, IDT_IP4_ADDRESS);
-		my $helo = $lasthop->{helo};
-		$query_connect->identity($helo, IDT_DOMAIN_NAME);
 	}
 
-	my $envfrom = $scanner->get('EnvelopeFrom:addr');
-	$query_connect->identity($envfrom, IDT_EMAIL_ADDRESS);
+	# The content-filtering dance
+	{
+		my $query = new Mail::Karmasphere::Query();
+		$query->composite($conf->{karma_feedset}->{content}
+						|| $CONTENT_FEEDSET);
 
-	my $id_connect = $client->send($query_connect);
-	$scanner->{karma}->{id}->{connect} = $id_connect;
+		$self->add_content_urls($scanner, $query);
+		$self->add_content_other($scanner, $query);
 
-
-	my @uris = $scanner->get_uri_list();
-	if (@uris) {
-		my $query_content = new Mail::Karmasphere::Query();
-		$query_content->composite($conf->{karma_content_feedset});
-		for my $uri (@uris) {
-			$query_content->identity($uri, IDT_URL);
+		if ($query->has_identities) {
+			my $qid = $client->send($query);
+			$scanner->{karma}->{id}->{content} = $qid;
 		}
-		my $id_content = $client->send($query_content);
-		$scanner->{karma}->{id}->{content} = $id_content;
 	}
+
 }
 
 
@@ -165,9 +275,13 @@ sub _karma_recv {
 	dbg("_karma_recv: timeout=$timeout");
 	my $finish = time() + $timeout;
 	my $id_connect = $scanner->{karma}->{id}->{connect};
-	dbg("_karma_recv: id_connect=$id_connect");
-	my $response_connect = $client->recv($id_connect, $timeout);
-	dbg("_karma_recv: response_connect=$response_connect");
+	my $response_connect = undef;
+	if ($id_connect) {
+		dbg("_karma_recv: id_connect=$id_connect");
+		$response_connect = $client->recv($id_connect, $timeout);
+		# This warns about undefined if it times out.
+		# dbg("_karma_recv: response_connect=$response_connect");
+	}
 
 	my $id_content = $scanner->{karma}->{id}->{content};
 	my $response_content = undef;
@@ -175,7 +289,8 @@ sub _karma_recv {
 		dbg("_karma_recv: id_content=$id_content");
 		$response_content = $client->recv($id_content,
 						$finish - time());
-		dbg("_karma_recv: response_content=$response_content");
+		# This warns about undefined if it times out.
+		# dbg("_karma_recv: response_content=$response_content");
 	}
 
 	return {
@@ -205,14 +320,46 @@ sub check_post_dnsbl {
 
 	my $responses = $self->_karma_recv($scanner);
 
+	# return unless keys %$responses;
+
+	my %values;
+	my %data;
+	while (my ($context, $response) = each(%$responses)) {
+		next unless $response;
+		my $composite = $conf->{karma_feedset}->{$context};
+		my $value = $response->value($composite);
+		$values{$context} = $value;
+		my $data = $response->data($composite);
+		$data{$context} = $data;
+	}
+
+	# Do something with closures.
+	$scanner->set_tag("KARMASCORE", sub {
+		my $context = shift;
+		return $values{$context} if defined $values{$context};
+		return '0';
+	});
+	$scanner->set_tag("KARMADATA", sub {
+		my $context = shift;
+		return $data{$context} if defined $data{$context};
+		return '(null data)';
+	});
+
+	# use Data::Dumper;
+	# print STDERR Dumper(\%values);
 	return unless $conf->{karma_rules};
+	# return unless keys %values;
 
 	my %rules = %{ $conf->{karma_rules} };
 	while (my ($rulename, $data) = each(%rules)) {
 		my ($context, $min, $max) = @$data;
-		my $response = $responses->{$context};
-		next unless $response;
-		my $value = $response->value;
+		# my $response = $responses->{$context};
+		# next unless $response;
+		# my $composite = $conf->{karma_feedset}->{$context};
+		# my $value = $response->value($composite);
+		# print STDERR Dumper('feedset', $composite, $value);
+		my $value = $values{$context};
+		next unless defined $value;
 		next if $value < $min;
 		next if $value > $max;
 		$scanner->got_hit($rulename);
@@ -237,7 +384,8 @@ Mail::SpamAssassin::Plugin::Karmasphere - Query the Karmasphere reputation syste
 
 	loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
-	karma KARMA_CONNECT_0_10	connect 0 10
+	karma_feedset connect karmasphere.emailchecker
+	karma_range KARMA_CONNECT_0_10	connect 0 10
 	score KARMA_CONNECT_0_10	0.1
 
 =head1 DESCRIPTION
@@ -257,23 +405,31 @@ should still trap URLs used by spammers and phishing sites.
 
 =head1 USER SETTINGS
 
+An extremely simplistic, minimal example configuration file is provided
+in the eg/spamassassin/ subdirectory of this distribution. An
+administrator would be expected to write a more complex
+configuration file including more useful score ranges. The details
+of a particular configuration file will depend on the choice of
+feedsets used for the various context.
+
+The very similar-looking words 'context', 'connect' and 'content'
+are used throughout this document. Please read carefully.
+
+Valid B<contexts> are B<connect>, for a karma query relating to
+connection-time metadata, and B<content> for content-filtering data.
+
 =over 4
 
-=item B<karma> I<context> I<min> I<max>
+=item B<karma_range> rulename context min max
 
 A karma score range. B<context> is either B<connect> or B<content>
 
-=item B<karma_connect_feedset>
+=item B<karma_feedset> context feedsetname
 
-The feedset name to query using connect-time information.
-The default is C<karmasphere.emailchecker>.
-
-=item B<karma_content_feedset>
-
-The feedset name to query using content information.
-The default is C<karmasphere.contentfilter>.
-
-=item B<karma> rulename context min max
+The feedset name to query in the given context information.  The
+default for the B<connect> context is C<karmasphere.emailchecker>.
+The default for the B<content> filter context is
+C<karmasphere.contentfilter>.
 
 =back
 
@@ -294,9 +450,25 @@ The default is C<8666>.
 =item B<karma_timeout>
 
 The timeout for receiving karma responses, in seconds.
-The default is C<60>.
+The default is C<15>.
 
 =back
+
+=head1 TEMPLATE TAGS
+
+This module adds two extra template tags for header rewriting:
+_KARMASCORE(C<context>)_ and _KARMADATA(C<context>)_, which expand
+to the numeric score, and explanatory data generated by Karmasphere
+in the given context. For example, to generate a "traditional" karma
+header for the connect context, use:
+
+	add_header all Karma-Connect _KARMASCORE(connect)_: _KARMADATA(connect)_
+
+Due to the limitations of SpamAssassin, it is impossible to generate
+a header "X-Karma". The generated headers are all prefixed with
+"X-Spam-". Post-filter programs designed to work with this Karma plugin
+will therefore need to look for the configured header variants instead
+of X-Karma.
 
 =head1 INTERNALS
 
@@ -304,21 +476,69 @@ The plugin hooks two points in the SpamAssassin scanner cycle. It
 sends Karmasphere queries during the parsed_metadata callback,
 and it receives responses during the check_post_dnsbl callback.
 
+Several hooks are provided for the user to alter the query packet
+constructed. The routine which builds the packet by default calls
+the following routines on itself to add fields to the query:
+
+=over 4
+
+=item $self->add_connect_authentication($scanner, $query)
+
+Adds any information gathered from Authentication-Results headers
+to the given connection query packet. This is usually authenticated
+versions of of various identities checked by SPF, DKIM or other
+external mechanisms.
+
+=item $self->add_connect_received($scanner, $query)
+
+Adds any information gathered from Received headers to the given
+connection query packet. This frequently includes the client IP,
+mail from address, and so forth.
+
+=item $self->add_connect_envfrom($scanner, $query)
+
+Adds the information gathered from $scanner->get('EnvelopeFrom:addr')
+to the given connection query packet.
+
+=item $self->add_connect_other($scanner, $query)
+
+By default, this does nothing. This is the recommended extension
+point for custom fields in the connection query packet.
+
+=item $self->add_content_urls($scanner, $query)
+
+Adds URLs found in the body to the given content query packet.
+
+=item $self->add_content_other($scanner, $query)
+
+By default, this does nothing. This is the recommended extension
+point for custom fields in the content query packet.
+
+=back
+
+The plugin is designed to be subclassed by modulesoverriding the
+add_*_other() routines. If you do this, you must load your subclass
+instead of this class in your configuration file.
+
 Developers needing more information should dig into the source code.
 
 =head1 BUGS
 
-See L<TODO>.
+Ensure that Authentication-Results headers are only honoured when
+not preceded by a Received line.
 
 =head1 TODO
 
-Implement authentication.
+Use the data fields from the Karma response to construct an
+explanation message.
 
 =head1 SEE ALSO
 
-L<Mail::Karmasphere::Client>
-L<http://www.karmasphere.com/>
-L<Mail::SpamAssassin>
+L<Mail::Karmasphere::Client>,
+http://www.karmasphere.com/,
+L<Mail::SpamAssassin>,
+L<Mail::SpamAssassin::Conf>,
+L<eg/spamassassin/26_karmasphere.cf>
 
 =head1 COPYRIGHT
 

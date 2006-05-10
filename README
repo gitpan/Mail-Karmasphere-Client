@@ -80,8 +80,8 @@ BUGS
     This document is incomplete.
 
 SEE ALSO
-    Mail::Karmasphere::Query Mail::Karmasphere::Response
-    http://www.karmasphere.com/
+    Mail::Karmasphere::Query, Mail::Karmasphere::Response,
+    http://www.karmasphere.com/, Mail::SpamAssassin::Plugin::Karmasphere
 
 COPYRIGHT
     Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.

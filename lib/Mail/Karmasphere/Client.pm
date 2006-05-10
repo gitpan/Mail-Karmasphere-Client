@@ -17,14 +17,27 @@ use constant {
 	IDT_EMAIL_ADDRESS	=> 3,
 	IDT_URL				=> 4,
 };
+use constant {
+	AUTHENTIC					=> "a",
+	SMTP_CLIENT_IP				=> "smtp.client-ip",
+	SMTP_ENV_HELO				=> "smtp.env.helo",
+	SMTP_ENV_MAIL_FROM			=> "smtp.env.mail-from",
+	SMTP_ENV_RCPT_TO			=> "smtp.env.rcpt-to",
+	SMTP_HEADER_FROM_ADDRESS	=> "smtp.header.from.address",
+};
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.10";
+	$VERSION = "1.12";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
 					IDT_URL
+
+					AUTHENTIC
+					SMTP_CLIENT_IP
+					SMTP_ENV_HELO SMTP_ENV_MAIL_FROM SMTP_ENV_RCPT_TO
+					SMTP_HEADER_FROM_ADDRESS
 				);
 	%EXPORT_TAGS = (
 		'all' => \@EXPORT_OK,
@@ -80,10 +93,10 @@ sub send {
 		_	=> $id,
 		i	=> $query->identities,
 	};
-	$packet->{s} = $query->composites if defined $query->composites;
-	$packet->{f} = $query->feeds if defined $query->feeds;
-	$packet->{c} = $query->combiners if defined $query->combiners;
-	$packet->{fl} = $query->flags if defined $query->flags;
+	$packet->{s} = $query->composites if $query->has_composites;
+	$packet->{f} = $query->feeds if $query->has_feeds;
+	$packet->{c} = $query->combiners if $query->has_combiners;
+	$packet->{fl} = $query->flags if $query->has_flags;
 	# print STDERR Dumper($packet) if $self->{Debug};
 
 	my $data = bencode($packet);
@@ -137,6 +150,7 @@ sub recv {
 
 	my $id = ref($query) ? $query->id : $query;
 	if ($QUEUE{$id}) {
+		print STDERR "Found $id in queue\n" if $self->{Debug};
 		@QUEUE = grep { $_ ne $id } @QUEUE;
 		return delete $QUEUE{$id};
 	}
@@ -155,8 +169,9 @@ sub recv {
 			$response->{query} = $query if ref $query;
 			return $response if $response->id eq $id;
 
-			push(@QUEUE, $id);
-			$QUEUE{$id} = $response;
+			my $rid = $response->id;
+			push(@QUEUE, $rid);
+			$QUEUE{$rid} = $response;
 			if (@QUEUE > $QUEUE) {
 				my $oid = shift @QUEUE;
 				delete $QUEUE{$oid};
@@ -287,9 +302,10 @@ This document is incomplete.
 
 =head1 SEE ALSO
 
-L<Mail::Karmasphere::Query>
-L<Mail::Karmasphere::Response>
-http://www.karmasphere.com/
+L<Mail::Karmasphere::Query>,
+L<Mail::Karmasphere::Response>,
+http://www.karmasphere.com/,
+L<Mail::SpamAssassin::Plugin::Karmasphere>
 
 =head1 COPYRIGHT
 
