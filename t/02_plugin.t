@@ -5,6 +5,8 @@ use Test::More;
 # Use these subroutines as check-hooks
 use vars qw($CONNECT $CONTENT);
 
+my $DEBUG = 1 if $ENV{MKS_DEBUG_TESTS};
+
 eval {
 	require Mail::SpamAssassin::Plugin;
 };
@@ -21,8 +23,7 @@ use_ok('Mail::SpamAssassin::Conf');
 use_ok('Mail::SpamAssassin::PerMsgStatus');
 use_ok('Mail::SpamAssassin::Plugin::Karmasphere');
 
-my $main = new Mail::SpamAssassin({
-				config_text => <<'EOR',
+my $config_text = <<'EOR';
 
 loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
@@ -42,8 +43,10 @@ add_header all Karma-Connect _KARMASCORE(connect)_: _KARMADATA(connect)_
 add_header all Karma-Content _KARMASCORE(content)_: _KARMADATA(content)_
 
 EOR
-				 # debug		=> 'all',
-					});
+
+my %args = (config_text	=> $config_text);
+$args{debug} = 'all' if $DEBUG;
+my $main = new Mail::SpamAssassin(\%args);
 
 {
 	no strict qw(refs);
@@ -134,6 +137,6 @@ ok(defined $str, 'Replace data tag returned a good value');
 unlike($str, qr/KARMA/, 'Karma data tag is gone.');
 
 my $output = $status->rewrite_mail();
-# print $output, "\n";
+print STDERR $output, "\n" if $DEBUG;
 like($output, qr/^X-Spam-Karma-Connect:/ms, 'Karma-Connect header created');
 like($output, qr/^X-Spam-Karma-Content:/ms, 'Karma-Content header created');

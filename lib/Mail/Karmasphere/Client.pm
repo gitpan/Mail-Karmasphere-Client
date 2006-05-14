@@ -28,7 +28,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.12";
+	$VERSION = "1.13";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -59,14 +59,18 @@ sub new {
 	$self->{Proto} ||= 'udp';
 	unless ($self->{Socket}) {
 		$self->{Socket} = new IO::Socket::INET(
-			Proto           => $self->{Proto},
-			PeerAddr        => $self->{PeerAddr}
+			Proto			=> $self->{Proto},
+			PeerAddr		=> $self->{PeerAddr}
 							|| $self->{PeerHost}
 							|| 'slave.karmasphere.com',
-			PeerPort        => $self->{PeerPort} || 8666,
-			ReuseAddr       => 1,
+			PeerPort		=> $self->{PeerPort} || 8666,
+			ReuseAddr		=> 1,
 		)
 				or die "Failed to create socket: $! (%$self)";
+	}
+
+	if ($self->{Debug} and ref($self->{Debug}) ne 'CODE') {
+		$self->{Debug} = sub { print STDERR Dumper(@_); };
 	}
 
 	return bless $self, $class;
@@ -85,7 +89,7 @@ sub send {
 	die "Not a query: $query"
 			unless $query->isa('Mail::Karmasphere::Query');
 
-	print STDERR Dumper($query) if $self->{Debug};
+	$self->{Debug}->('send_query', $query) if $self->{Debug};
 
 	my $id = $query->id;
 
@@ -97,10 +101,10 @@ sub send {
 	$packet->{f} = $query->feeds if $query->has_feeds;
 	$packet->{c} = $query->combiners if $query->has_combiners;
 	$packet->{fl} = $query->flags if $query->has_flags;
-	# print STDERR Dumper($packet) if $self->{Debug};
+	# $self->{Debug}->('send_packet', $packet) if $self->{Debug};
 
 	my $data = bencode($packet);
-	print STDERR ">> $data\n" if $self->{Debug};
+	$self->{Debug}->('send_data', $data) if $self->{Debug};
 
 	if ($self->{Proto} eq 'tcp') {
 		$data = pack("N", length($data)) . $data;
@@ -131,7 +135,7 @@ sub _recv_real {
 			$data .= $block;
 			$length -= $bytes;
 		}
-		print STDERR "<< $data\n" if $self->{Debug};
+		$self->{Debug}->('recv_data', $data) if $self->{Debug};
 	}
 	else {
 		$socket->recv($data, 8192)
@@ -141,7 +145,7 @@ sub _recv_real {
 	die $packet unless ref($packet) eq 'HASH';
 
 	my $response = new Mail::Karmasphere::Response($packet);
-	print STDERR Dumper($response) if $self->{Debug};
+	$self->{Debug}->('recv_response', $response) if $self->{Debug};
 	return $response;
 }
 
@@ -150,7 +154,8 @@ sub recv {
 
 	my $id = ref($query) ? $query->id : $query;
 	if ($QUEUE{$id}) {
-		print STDERR "Found $id in queue\n" if $self->{Debug};
+		$self->{Debug}->('recv_find', $id, $QUEUE{$id})
+						if $self->{Debug};
 		@QUEUE = grep { $_ ne $id } @QUEUE;
 		return delete $QUEUE{$id};
 	}
@@ -250,7 +255,10 @@ Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
 
 =item Debug
 
-Set to 1 to enable some wire-level debugging.
+Either a true value for debugging to stderr, or a custom debug handler.
+The custom handler will be called with N arguments, the first of which
+is a string 'debug context'. The custom handler may choose to ignore
+messages from certain contexts.
 
 =back
 

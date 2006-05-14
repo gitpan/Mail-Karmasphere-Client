@@ -46,7 +46,10 @@ CONSTRUCTOR
         Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
 
     Debug
-        Set to 1 to enable some wire-level debugging.
+        Either a true value for debugging to stderr, or a custom debug
+        handler. The custom handler will be called with N arguments, the
+        first of which is a string 'debug context'. The custom handler may
+        choose to ignore messages from certain contexts.
 
 METHODS
     $response = $client->ask($query, $timeout)

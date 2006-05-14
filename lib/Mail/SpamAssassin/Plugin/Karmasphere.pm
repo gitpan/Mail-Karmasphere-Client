@@ -3,9 +3,10 @@ package Mail::SpamAssassin::Plugin::Karmasphere;
 
 use strict;
 use warnings;
-use vars qw(@ISA $CONNECT_FEEDSET $CONTENT_FEEDSET);
+use vars qw(@ISA $CONNECT_FEEDSET $CONTENT_FEEDSET $DEBUG);
 use bytes;
 use Carp qw(confess);
+use Data::Dumper;
 use Time::HiRes;
 use Mail::SpamAssassin::Plugin;
 use Mail::SpamAssassin::Logger;
@@ -14,6 +15,7 @@ use Mail::Karmasphere::Client qw(:ALL);
 @ISA = qw(Mail::SpamAssassin::Plugin);
 $CONNECT_FEEDSET = 'karmasphere.emailchecker';
 $CONTENT_FEEDSET = 'karmasphere.contentfilter';
+$DEBUG = undef;
 
 # constructor: register the eval rule and parse any config
 sub new {
@@ -101,24 +103,49 @@ sub set_config {
 		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_NUMERIC
 	});
 
+	push (@cmds, {
+		setting		=> 'karma_ar_host',
+		is_admin	=> 1,
+		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
+	});
+
 	$conf->{parser}->register_commands(\@cmds);
+}
+
+sub _karma_debug {
+	my ($context, @args) = @_;
+	{
+		local $Data::Dumper::Indent = 1;
+		local $Data::Dumper::Varname = uc($context);
+		dbg("karma: " . Dumper(@args));
+	}
+	$DEBUG->(@_) if $DEBUG;
 }
 
 sub _karma_client {
 	my $self = shift;
 	my $conf = shift || $self->{main}{conf};
 	unless ($self->{Client}) {
-		$self->{Client} = new Mail::Karmasphere::Client (
-						# Debug		=> 1,
-						PeerHost	=> $conf->{karma_host},
-						PeerPort	=> $conf->{karma_port},
-							);
+		my %args = (
+			PeerHost	=> $conf->{karma_host},
+			PeerPort	=> $conf->{karma_port},
+		);
+		if (would_log('dbg', 'karma')) {
+			$args{Debug} = \&_karma_debug;
+		}
+		$self->{Client} = new Mail::Karmasphere::Client(%args);
 	}
 	return $self->{Client};
 }
 
 sub add_connect_authentication {
 	my ($self, $scanner, $query) = @_;
+
+	my $conf = $scanner->{conf};
+	my $arhost = lc $conf->{karma_ar_host};
+
+	# Authentication-Results: spf.checker.net \
+	#	smtp.mail=spf-sender\@that.net; spf=pass
 
 	# XXX Make sure these are not preceded by any received: line.
 	my $authresults = $scanner->get('Authentication-Results');
@@ -130,6 +157,9 @@ sub add_connect_authentication {
 				next;
 			}
 			my $hostname = $1;
+			if ($arhost) {
+				next if $arhost eq lc $hostname;
+			}
 			my @vals = split(/\s*;\s*/, $line);
 			my $identity = shift @vals;
 			unless ($identity =~ /^([^=]*)=(.*)/) {
@@ -345,7 +375,6 @@ sub check_post_dnsbl {
 		return '(null data)';
 	});
 
-	# use Data::Dumper;
 	# print STDERR Dumper(\%values);
 	return unless $conf->{karma_rules};
 	# return unless keys %values;
@@ -520,7 +549,16 @@ The plugin is designed to be subclassed by modulesoverriding the
 add_*_other() routines. If you do this, you must load your subclass
 instead of this class in your configuration file.
 
-Developers needing more information should dig into the source code.
+If SpamAssassin's debugging for the 'karma' facility is enabled
+(i.e. would_log('dbg', 'karma') returns true), then access to the
+L<Mail::Karmasphere::Client> Debug mechanism is provided via a
+global variable $Mail::SpamAssassin::Plugin::Karmasphere::DEBUG. If
+that variable contains a subroutine reference, the referenced
+subroutine will be called as the L<Mail::Karmasphere::Client>
+Debug routine.
+
+Developers needing more information about any of the above features
+should dig into the source code.
 
 =head1 BUGS
 
@@ -538,6 +576,7 @@ L<Mail::Karmasphere::Client>,
 http://www.karmasphere.com/,
 L<Mail::SpamAssassin>,
 L<Mail::SpamAssassin::Conf>,
+L<Mail::SpamAssassin::Logger>,
 L<eg/spamassassin/26_karmasphere.cf>
 
 =head1 COPYRIGHT
