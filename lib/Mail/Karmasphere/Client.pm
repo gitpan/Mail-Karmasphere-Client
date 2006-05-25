@@ -28,7 +28,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.13";
+	$VERSION = "1.15";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS

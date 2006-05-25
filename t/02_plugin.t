@@ -15,7 +15,7 @@ if ($@) {
 	plan skip_all => "Could not load Mail::SpamAssassin::Plugin";
 }
 else {
-	plan tests => 29;
+	plan tests => 31;
 }
 
 use_ok('Mail::SpamAssassin', 3.0);
@@ -115,10 +115,12 @@ $CONNECT = sub {
 $CONTENT = sub {
 	my ($self, $scanner, $query) = @_;
 	ok(defined $query, 'Query is defined in add_content_other');
+	ok($query->has_identities, 'Query has identities');
+	is(3, scalar(@{ $query->identities }), 'Query has 3 identities');
 	is('karmasphere.nonexistent', $query->composites->[0],
 					'Content composite is correct.');
 	# Prevent the query from being sent to a duff feedset.
-	delete $query->{Identities};
+	$query->{Composites} = [ 'karmasphere.contentfilter' ];
 };
 my $status = $main->check($mail);
 

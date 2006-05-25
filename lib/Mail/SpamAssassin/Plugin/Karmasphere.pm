@@ -152,13 +152,14 @@ sub add_connect_authentication {
 	if (defined $authresults) {
 		my @authresults = split(/[\r\n]+/, $authresults);
 		foreach my $line (@authresults) {
+			dbg("karma: Parsing A-R header $line");
 			unless ($line =~ s/^\s*(\S+)\s*//) {
 				dbg("Invalid Authentication-Results header: $line");
 				next;
 			}
 			my $hostname = $1;
 			if ($arhost) {
-				next if $arhost eq lc $hostname;
+				next if $arhost ne lc $hostname;
 			}
 			my @vals = split(/\s*;\s*/, $line);
 			my $identity = shift @vals;
@@ -167,6 +168,7 @@ sub add_connect_authentication {
 				next;
 			}
 			my ($artype, $iddata) = ($1, $2);
+			dbg("karma: A-R host=$hostname, type=$artype, id=$iddata");
 			my %checks = ();
 			my $pass = undef;
 			for my $val (@vals) {
@@ -202,11 +204,11 @@ sub add_connect_received {
 
 	if ($scanner->{num_relays_untrusted} > 0) {
 		my $lasthop = $scanner->{relays_untrusted}->[0];
-		# print STDERR "Last hop is " . Dumper($lasthop);
 		if (!defined $lasthop) {
 			dbg("karma: message was delivered entirely via trusted relays, not required");
 			return;
 		}
+		dbg("karma: Last hop is " . Dumper($lasthop));
 		my $ip = $lasthop->{ip};
 		$query->identity($ip, IDT_IP4_ADDRESS, SMTP_CLIENT_IP)
 						if $ip;
@@ -214,12 +216,18 @@ sub add_connect_received {
 		$query->identity($helo, IDT_DOMAIN_NAME, SMTP_ENV_HELO)
 						if $helo;
 	}
+	else {
+		dbg("karma: No untrusted relays");
+	}
 }
 
 sub add_connect_envfrom {
 	my ($self, $scanner, $query) = @_;
 
 	my $envfrom = $scanner->get('EnvelopeFrom:addr');
+	dbg("karma: Envelope FROM is " .
+		(defined($envfrom) ? $envfrom : '(undef)')
+			);
 	$query->identity($envfrom, IDT_EMAIL_ADDRESS, SMTP_ENV_MAIL_FROM)
 					if $envfrom;
 }
@@ -232,14 +240,16 @@ sub add_content_urls {
 	my ($self, $scanner, $query) = @_;
 
 	my $uris = $scanner->get_uri_detail_list();
+	dbg("karma: URI list is " . Dumper($uris));
 	my %uris = ();
 	for my $data (values %$uris) {
 		my $cleaned = $data->{cleaned} or next;
-		my $uri = $cleaned->[1] or next;
+		my $uri = $cleaned->[0] or next;
 		$uris{$uri} = 1;
 	}
 
 	for my $uri (keys %uris) {
+		dbg("karma: Adding URL $uri");
 		$query->identity($uri, IDT_URL);
 	}
 }
@@ -250,6 +260,8 @@ sub add_content_other {
 
 sub _karma_send {
 	my ($self, $scanner) = @_;
+
+	dbg("_karma_send: called");
 
 	my $conf = $scanner->{conf};
 	my $client = $self->_karma_client($conf);
@@ -273,6 +285,9 @@ sub _karma_send {
 			my $qid = $client->send($query);
 			$scanner->{karma}->{id}->{connect} = $qid;
 		}
+		else {
+			dbg("karma: No identities in connect packet");
+		}
 	}
 
 	# The content-filtering dance
@@ -287,6 +302,9 @@ sub _karma_send {
 		if ($query->has_identities) {
 			my $qid = $client->send($query);
 			$scanner->{karma}->{id}->{content} = $qid;
+		}
+		else {
+			dbg("karma: No identities in content packet");
 		}
 	}
 
