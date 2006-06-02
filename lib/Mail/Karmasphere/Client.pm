@@ -28,7 +28,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.15";
+	$VERSION = "1.16";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -102,6 +102,10 @@ sub send {
 	$packet->{c} = $query->combiners if $query->has_combiners;
 	$packet->{fl} = $query->flags if $query->has_flags;
 	# $self->{Debug}->('send_packet', $packet) if $self->{Debug};
+	if (defined $self->{Principal}) {
+		my $creds = defined $self->{Credentials} ? $self->{Credentials} : '';
+		$packet->{a} = [ $self->{Principal}, $creds ];
+	}
 
 	my $data = bencode($packet);
 	$self->{Debug}->('send_data', $data) if $self->{Debug};
@@ -237,7 +241,7 @@ The class method new(...) constructs a new Client object. All arguments
 are optional. The following parameters are recognised as arguments
 to new():
 
-=over 4
+=over 4 
 
 =item PeerAddr
 
@@ -252,6 +256,18 @@ is 8666.
 =item Proto
 
 Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
+
+=item Principal
+
+An identifier used to authenticate client connections. This may be a
+login or account name. The precise details will depend on the policy
+of the slave server being used.
+
+=item Credentials
+
+The credentials used to authenticate the principal. This may be a
+password, or a certificate. The precise details may depend on the
+policy of the slave server being used.
 
 =item Debug
 

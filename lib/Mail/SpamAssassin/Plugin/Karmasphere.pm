@@ -109,6 +109,20 @@ sub set_config {
 		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
 	});
 
+	push (@cmds, {
+		setting		=> 'karma_principal',
+		default		=> undef,
+		is_admin	=> 1,
+		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
+	});
+
+	push (@cmds, {
+		setting		=> 'karma_credentials',
+		default		=> undef,
+		is_admin	=> 1,
+		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
+	});
+
 	$conf->{parser}->register_commands(\@cmds);
 }
 
@@ -129,10 +143,13 @@ sub _karma_client {
 		my %args = (
 			PeerHost	=> $conf->{karma_host},
 			PeerPort	=> $conf->{karma_port},
+			Principal	=> $conf->{karma_principal},
+			Credentials	=> $conf->{karma_credentials}
 		);
 		if (would_log('dbg', 'karma')) {
 			$args{Debug} = \&_karma_debug;
 		}
+		
 		$self->{Client} = new Mail::Karmasphere::Client(%args);
 	}
 	return $self->{Client};
@@ -498,6 +515,20 @@ The default is C<8666>.
 
 The timeout for receiving karma responses, in seconds.
 The default is C<15>.
+
+=item B<karma_principal>
+
+An identifier used to authenticate client connections. This may be a
+login or account name. The precise details will depend on the policy
+of the slave server being used.
+The default is C<undef>.
+
+=item B<karma_credentials>
+
+The credentials used to authenticate the principal. This may be a
+password, or a certificate. The precise details may depend on the
+policy of the slave server being used.
+The default is C<undef>.
 
 =back
 

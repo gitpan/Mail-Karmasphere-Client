@@ -27,6 +27,9 @@ my $config_text = <<'EOR';
 
 loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
+karma_principal		public
+karma_credentials	password
+
 karma_range	KARMA_CONNECT_POSITIVE	connect  0.1   1000
 karma_range	KARMA_CONNECT_NEGATIVE	connect -1000 -0.1
 karma_range	KARMA_CONTENT_POSITIVE	content  0.1   1000
