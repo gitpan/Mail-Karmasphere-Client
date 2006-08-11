@@ -28,7 +28,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.16";
+	$VERSION = "1.17";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -56,14 +56,19 @@ sub new {
 	my $class = shift;
 	my $self = ($#_ == 0) ? { %{ (shift) } } : { @_ };
 
-	$self->{Proto} ||= 'udp';
 	unless ($self->{Socket}) {
+		$self->{Proto} = 'udp'
+						unless defined $self->{Proto};
+		$self->{PeerAddr} = $self->{PeerHost}
+						unless defined $self->{PeerAddr};
+		$self->{PeerAddr} = 'slave.karmasphere.com'
+						unless defined $self->{PeerAddr};
+		$self->{PeerPort} = 8666
+						unless $self->{Port};
 		$self->{Socket} = new IO::Socket::INET(
 			Proto			=> $self->{Proto},
-			PeerAddr		=> $self->{PeerAddr}
-							|| $self->{PeerHost}
-							|| 'slave.karmasphere.com',
-			PeerPort		=> $self->{PeerPort} || 8666,
+			PeerAddr		=> $self->{PeerAddr},
+			PeerPort		=> $self->{PeerPort},
 			ReuseAddr		=> 1,
 		)
 				or die "Failed to create socket: $! (%$self)";
@@ -72,6 +77,7 @@ sub new {
 	if ($self->{Debug} and ref($self->{Debug}) ne 'CODE') {
 		$self->{Debug} = sub { print STDERR Dumper(@_); };
 	}
+	$self->{Debug}->('new', $self) if $self->{Debug};
 
 	return bless $self, $class;
 }

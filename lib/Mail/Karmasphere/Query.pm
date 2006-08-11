@@ -188,6 +188,9 @@ sub feed {
 	my ($self, @feeds) = @_;
 	for my $feed (@feeds) {
 		# Validate.
+#		if ($feed =~ /^[0-9]+$/) {
+#			warn "Numeric feed ids are deprecated.";
+#		}
 		push(@{ $self->{Feeds} }, $feed);
 	}
 }

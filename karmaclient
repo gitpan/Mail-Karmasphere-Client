@@ -6,11 +6,12 @@ use Getopt::Long;
 use Data::Dumper;
 use Mail::Karmasphere::Client qw(:all);
 
-my ($host, $port, $tcp, $single);
+my ($host, $port, $tcp, $single, $debug);
 my (@feeds, @composites, @combiners);
 my (@ip4, @ip6, @domain, @url, @email);
 
 my $result = GetOptions(
+	"debug"			=> \$debug,
 	"host=s"		=> \$host,
 	"port=i"		=> \$port,
 	"feed=s"		=> \@feeds,
@@ -24,15 +25,6 @@ my $result = GetOptions(
 	"tcp"			=> \$tcp,
 	"single"		=> \$single,
 );
-
-@feeds = map { split(/[,:\s]/, $_) } @feeds;
-@feeds = map { +$_ } @feeds;
-@feeds = grep { $_ > 0 } @feeds;
-
-unless (@composites) {
-	@feeds = (4000..4010) unless @feeds;
-	@combiners = qw(default) unless @combiners;
-}
 
 if (!$result){
 	print << "EOH";
@@ -51,6 +43,10 @@ Example:
 EOH
 	exit 1;
 }
+
+@feeds = map { split(/[,:\s]/, $_) } @feeds;
+@combiners = map { split(/[,:\s]/, $_) } @combiners;
+@composites = map { split(/[,:\s]/, $_) } @composites;
 
 my @ids = ();
 my %ids = (
@@ -73,11 +69,15 @@ for my $type (keys %ids) {
 }
 
 push(@ids, [ '127.0.0.2', IDT_IP4_ADDRESS ]) unless @ids;
+unless (@composites || @feeds) {
+	push(@composites, "karmasphere.emailchecker");
+}
 
 my %args = ();
 $args{PeerHost} = $host if $host;
 $args{PeerPort} = $port if $port;
 $args{Proto} = 'tcp' if $tcp;
+$args{Debug} = 1 if $debug;
 my $client = new Mail::Karmasphere::Client(%args);
 if ($single) {
 	for (@ids) {

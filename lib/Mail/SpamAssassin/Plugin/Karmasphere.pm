@@ -1,4 +1,3 @@
-
 package Mail::SpamAssassin::Plugin::Karmasphere;
 
 use strict;
