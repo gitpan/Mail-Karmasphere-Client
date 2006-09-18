@@ -90,19 +90,19 @@ sub guess_identity_type {
 	my $identity = shift;
 
 	if ($identity =~ /^[0-9\.]{7,15}$/) {
-		return IDT_IP4_ADDRESS;
+		return IDT_IP4;
 	}
 	elsif ($identity =~ /^[0-9a-f:]{2,64}$/i) {
-		return IDT_IP6_ADDRESS;
+		return IDT_IP6;
 	}
 	elsif ($identity =~ /^https?:\/\//) {
 		return IDT_URL;
 	}
 	elsif ($identity =~ /@/) {
-		return IDT_EMAIL_ADDRESS;
+		return IDT_EMAIL;
 	}
 	elsif ($identity =~ /\./) {
-		return IDT_DOMAIN_NAME;
+		return IDT_DOMAIN;
 	}
 
 	return undef;

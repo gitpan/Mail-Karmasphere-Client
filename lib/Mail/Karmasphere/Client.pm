@@ -15,6 +15,11 @@ use constant {
 	IDT_IP6_ADDRESS		=> 1,
 	IDT_DOMAIN_NAME		=> 2,
 	IDT_EMAIL_ADDRESS	=> 3,
+
+	IDT_IP4				=> 0,
+	IDT_IP6				=> 1,
+	IDT_DOMAIN			=> 2,
+	IDT_EMAIL			=> 3,
 	IDT_URL				=> 4,
 };
 use constant {
@@ -24,20 +29,27 @@ use constant {
 	SMTP_ENV_MAIL_FROM			=> "smtp.env.mail-from",
 	SMTP_ENV_RCPT_TO			=> "smtp.env.rcpt-to",
 	SMTP_HEADER_FROM_ADDRESS	=> "smtp.header.from.address",
+
+	FL_FACTS		=> 1,
 };
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "1.17";
+	$VERSION = "2.00";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
+
+					IDT_IP4 IDT_IP6
+					IDT_DOMAIN IDT_EMAIL
 					IDT_URL
 
 					AUTHENTIC
 					SMTP_CLIENT_IP
 					SMTP_ENV_HELO SMTP_ENV_MAIL_FROM SMTP_ENV_RCPT_TO
 					SMTP_HEADER_FROM_ADDRESS
+
+					FL_FACTS
 				);
 	%EXPORT_TAGS = (
 		'all' => \@EXPORT_OK,
@@ -133,7 +145,6 @@ sub _recv_real {
 
 	my $data;
 	if ($self->{Proto} eq 'tcp') {
-		my $data;
 		$socket->read($data, 4)
 					or die "Failed to receive length from socket: $!";
 		my $length = unpack("N", $data);
@@ -150,6 +161,7 @@ sub _recv_real {
 	else {
 		$socket->recv($data, 8192)
 					or die "Failed to receive from socket: $!";
+        $self->{Debug}->('recv_data', $data) if $self->{Debug};
 	}
 	my $packet = bdecode($data);
 	die $packet unless ref($packet) eq 'HASH';
@@ -221,7 +233,7 @@ Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 				);
 
 	my $query = new Mail::Karmasphere::Query();
-	$query->identity('123.45.6.7', IDT_IP4_ADDRESS);
+	$query->identity('123.45.6.7', IDT_IP4);
 	$query->composite('karmasphere.emailchecker');
 	my $response = $client->ask($query, 60);
 	print $response->as_string;
@@ -320,15 +332,24 @@ See L<Mail::Karmasphere::Query> for more details.
 
 =over 4
 
-=item IDT_IP4_ADDRESS IDT_IP6_ADDRESS IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS IDT_URL
+=item IDT_IP4 IDT_IP6 IDT_DOMAIN IDT_EMAIL IDT_URL
 
 Identity type constants.
+
+=item AUTHENTIC SMTP_CLIENT_IP SMTP_ENV_HELO SMTP_ENV_MAIL_FROM SMTP_ENV_RCPT_TO SMTP_HEADER_FROM_ADDRESS
+
+Identity tags, indicating the context of an identity to the server.
+
+=item FL_FACTS
+
+A flag indicating that all facts must be returned explicitly in the
+Response.
 
 =back
 
 =head1 BUGS
 
-This document is incomplete.
+UDP retries are not yet implemented.
 
 =head1 SEE ALSO
 

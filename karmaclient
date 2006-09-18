@@ -5,8 +5,10 @@ use warnings;
 use Getopt::Long;
 use Data::Dumper;
 use Mail::Karmasphere::Client qw(:all);
+# use Carp qw(cluck);
+# $SIG{__WARN__} = sub { cluck @_; };
 
-my ($host, $port, $tcp, $single, $debug);
+my ($host, $port, $tcp, $single, $debug, $version);
 my (@feeds, @composites, @combiners);
 my (@ip4, @ip6, @domain, @url, @email);
 
@@ -24,18 +26,20 @@ my $result = GetOptions(
 	"email=s"		=> \@email,
 	"tcp"			=> \$tcp,
 	"single"		=> \$single,
+	"version"		=> \$version,
 );
 
 if (!$result){
 	print << "EOH";
 Usage: $0 [--host=<slave.hostname.com>] [--port=<portnum>]
     [--tcp]
-	[--feed=<feedid> ...]
+	[--feed=<feedname> ...]
 	[--composite=<compositename> ...]
 	[--combiner=<combinername> ...]
     [--ip4=<ip4_addr>[=tag] ...] [--ip6=<ip6_addr>[=tag] ...]
     [--domain=<domain_name>[=tag] ...]
 	[--url=<url>[=tag] ...] [--email=<email_addr>[=tag] ...]
+	[--version]
 
 Example:
   Query for an IP4 address and a domain in one packet:
@@ -44,17 +48,22 @@ EOH
 	exit 1;
 }
 
+if ($version) {
+	print "Mail::Karmasphere::Client $Mail::Karmasphere::Client::VERSION\n";
+	exit;
+}
+
 @feeds = map { split(/[,:\s]/, $_) } @feeds;
 @combiners = map { split(/[,:\s]/, $_) } @combiners;
 @composites = map { split(/[,:\s]/, $_) } @composites;
 
 my @ids = ();
 my %ids = (
-	IDT_IP4_ADDRESS()	=> \@ip4,
-	IDT_IP6_ADDRESS()	=> \@ip6,
-	IDT_DOMAIN_NAME()	=> \@domain,
-	IDT_URL()			=> \@url,
-	IDT_EMAIL_ADDRESS()	=> \@email,
+	IDT_IP4()		=> \@ip4,
+	IDT_IP6()		=> \@ip6,
+	IDT_DOMAIN()	=> \@domain,
+	IDT_URL()		=> \@url,
+	IDT_EMAIL()		=> \@email,
 );
 
 for my $type (keys %ids) {
@@ -68,7 +77,7 @@ for my $type (keys %ids) {
 	}
 }
 
-push(@ids, [ '127.0.0.2', IDT_IP4_ADDRESS ]) unless @ids;
+push(@ids, [ '127.0.0.2', IDT_IP4 ]) unless @ids;
 unless (@composites || @feeds) {
 	push(@composites, "karmasphere.emailchecker");
 }
@@ -86,6 +95,7 @@ if ($single) {
 				Feeds		=> \@feeds,
 				Composites	=> \@composites,
 				Combiners	=> \@combiners,
+				Flags		=> FL_FACTS,
 					);
 		my $response = $client->ask($query);
 		if ($response) {
@@ -102,6 +112,7 @@ else {
 			Feeds		=> \@feeds,
 			Composites	=> \@composites,
 			Combiners	=> \@combiners,
+			Flags		=> FL_FACTS,
 				);
 	my $response = $client->ask($query);
 	if ($response) {

@@ -198,11 +198,11 @@ sub add_connect_authentication {
 			my @tags;
 			my $idtype;
 			if ($artype eq 'smtp.mail') {
-				$idtype = IDT_EMAIL_ADDRESS;
+				$idtype = IDT_EMAIL;
 				push(@tags, SMTP_ENV_MAIL_FROM);
 			}
 			elsif ($artype eq 'header.from') {
-				$idtype = IDT_EMAIL_ADDRESS;
+				$idtype = IDT_EMAIL;
 				push(@tags, SMTP_HEADER_FROM_ADDRESS);
 			}
 			else {
@@ -226,10 +226,10 @@ sub add_connect_received {
 		}
 		dbg("karma: Last hop is " . Dumper($lasthop));
 		my $ip = $lasthop->{ip};
-		$query->identity($ip, IDT_IP4_ADDRESS, SMTP_CLIENT_IP)
+		$query->identity($ip, IDT_IP4, SMTP_CLIENT_IP)
 						if $ip;
 		my $helo = $lasthop->{lc_helo} || $lasthop->{lc_rdns};
-		$query->identity($helo, IDT_DOMAIN_NAME, SMTP_ENV_HELO)
+		$query->identity($helo, IDT_DOMAIN, SMTP_ENV_HELO)
 						if $helo;
 	}
 	else {
@@ -244,7 +244,7 @@ sub add_connect_envfrom {
 	dbg("karma: Envelope FROM is " .
 		(defined($envfrom) ? $envfrom : '(undef)')
 			);
-	$query->identity($envfrom, IDT_EMAIL_ADDRESS, SMTP_ENV_MAIL_FROM)
+	$query->identity($envfrom, IDT_EMAIL, SMTP_ENV_MAIL_FROM)
 					if $envfrom;
 }
 

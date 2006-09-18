@@ -8,6 +8,11 @@ use vars qw($CONNECT $CONTENT);
 my $DEBUG = 1 if $ENV{MKS_DEBUG_TESTS};
 
 eval {
+	require Mail::SpamAssassin;
+	if ($Mail::SpamAssassin::VERSION < 3.001000) {
+		warn "The SpamAssassin plugin requires SpamAssassin version 3.10, but only version $Mail::SpamAssassin::VERSION was found";
+		die "SpamAssassin too old.";
+	}
 	require Mail::SpamAssassin::Plugin;
 };
 

@@ -10,7 +10,7 @@ SYNOPSIS
                                     );
 
             my $query = new Mail::Karmasphere::Query();
-            $query->identity('123.45.6.7', IDT_IP4_ADDRESS);
+            $query->identity('123.45.6.7', IDT_IP4);
             $query->composite('karmasphere.emailchecker');
             my $response = $client->ask($query, 60);
             print $response->as_string;
@@ -45,6 +45,16 @@ CONSTRUCTOR
     Proto
         Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
 
+    Principal
+        An identifier used to authenticate client connections. This may be a
+        login or account name. The precise details will depend on the policy
+        of the slave server being used.
+
+    Credentials
+        The credentials used to authenticate the principal. This may be a
+        password, or a certificate. The precise details may depend on the
+        policy of the slave server being used.
+
     Debug
         Either a true value for debugging to stderr, or a custom debug
         handler. The custom handler will be called with N arguments, the
@@ -75,12 +85,19 @@ METHODS
         See Mail::Karmasphere::Query for more details.
 
 EXPORTS
-    IDT_IP4_ADDRESS IDT_IP6_ADDRESS IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
-    IDT_URL
+    IDT_IP4 IDT_IP6 IDT_DOMAIN IDT_EMAIL IDT_URL
         Identity type constants.
 
+    AUTHENTIC SMTP_CLIENT_IP SMTP_ENV_HELO SMTP_ENV_MAIL_FROM
+    SMTP_ENV_RCPT_TO SMTP_HEADER_FROM_ADDRESS
+        Identity tags, indicating the context of an identity to the server.
+
+    FL_FACTS
+        A flag indicating that all facts must be returned explicitly in the
+        Response.
+
 BUGS
-    This document is incomplete.
+    UDP retries are not yet implemented.
 
 SEE ALSO
     Mail::Karmasphere::Query, Mail::Karmasphere::Response,

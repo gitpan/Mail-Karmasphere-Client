@@ -29,7 +29,8 @@ sub facts {
 sub combinations {
 	my $self = shift;
 	return $self->{c} if exists $self->{c};
-	return $self->{combiners};
+	return $self->{combiners} if exists $self->{combiners};
+	return [];
 }
 
 sub combination {
@@ -88,9 +89,12 @@ sub as_string {
 	$out = $out . scalar(@names) . " combinations, ";
 	$out = $out . scalar(@{ $self->facts }) . " facts\n";
 	if ($self->error) {
-		$out .= "Error " . $self->message . "\n";
+		$out .= "Error: " . $self->message . "\n";
 	}
 	else {
+		if ($self->message) {
+			$out .= "Warning: " . $self->message . "\n";
+		}
 		foreach (@names) {
 			my $value = $self->value($_);
 			my $data = $self->data($_) || '(undef)';
@@ -99,7 +103,9 @@ sub as_string {
 		foreach (@{$self->facts}) {
 			my $d = $_->{d};
 			$d = "null data" unless defined $d;
-			$out .= "Feed '$_->{f}' opinion $_->{v} ($d)\n";
+			$out .= "Feed '$_->{f}':";
+			$out .= " identity '$_->{i}'" if exists $_->{i};
+			$out .= " opinion $_->{v} ($d)\n";
 		}
 	}
 	return $out;
