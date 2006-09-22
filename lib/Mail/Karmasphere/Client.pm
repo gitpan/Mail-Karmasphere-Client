@@ -35,7 +35,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.01";
+	$VERSION = "2.02";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -73,7 +73,7 @@ sub new {
 						unless defined $self->{Proto};
 		$self->{PeerAddr} = $self->{PeerHost}
 						unless defined $self->{PeerAddr};
-		$self->{PeerAddr} = 'slave.karmasphere.com'
+		$self->{PeerAddr} = 'query.karmasphere.com'
 						unless defined $self->{PeerAddr};
 		$self->{PeerPort} = 8666
 						unless $self->{Port};
@@ -264,7 +264,7 @@ to new():
 =item PeerAddr
 
 The IP address or hostname to contact. See L<IO::Socket::INET>. The
-default is 'slave.karmasphere.com'.
+default is 'query.karmasphere.com'.
 
 =item PeerPort
 
@@ -279,13 +279,13 @@ Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
 
 An identifier used to authenticate client connections. This may be a
 login or account name. The precise details will depend on the policy
-of the slave server being used.
+of the query server being used.
 
 =item Credentials
 
 The credentials used to authenticate the principal. This may be a
 password, or a certificate. The precise details may depend on the
-policy of the slave server being used.
+policy of the query server being used.
 
 =item Debug
 

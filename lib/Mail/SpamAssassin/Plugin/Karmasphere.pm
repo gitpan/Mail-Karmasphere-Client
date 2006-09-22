@@ -83,7 +83,7 @@ sub set_config {
 
 	push (@cmds, {
 		setting		=> 'karma_host',
-		default		=> 'slave.karmasphere.com',
+		default		=> 'query.karmasphere.com',
 		is_admin	=> 1,
 		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_STRING
 	});
@@ -502,12 +502,12 @@ C<karmasphere.contentfilter>.
 
 =item B<karma_host>
 
-Hostname or IP address of the Karmasphere slave server.
-The default is C<slave.karmasphere.com>.
+Hostname or IP address of the Karmasphere query server.
+The default is C<query.karmasphere.com>.
 
 =item B<karma_port>
 
-Port number of the Karmasphere slave server.
+Port number of the Karmasphere query server.
 The default is C<8666>.
 
 =item B<karma_timeout>
@@ -519,14 +519,14 @@ The default is C<15>.
 
 An identifier used to authenticate client connections. This may be a
 login or account name. The precise details will depend on the policy
-of the slave server being used.
+of the query server being used.
 The default is C<undef>.
 
 =item B<karma_credentials>
 
 The credentials used to authenticate the principal. This may be a
 password, or a certificate. The precise details may depend on the
-policy of the slave server being used.
+policy of the query server being used.
 The default is C<undef>.
 
 =back

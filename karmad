@@ -16,7 +16,7 @@ sub usage {
 }
 
 my $help;
-my ($slave, $user, $group, $port, $path);
+my ($server, $user, $group, $port, $path);
 my $composite = "karmasphere.emailchecker";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -27,7 +27,8 @@ my $result = GetOptions(
 	"socketuser=s"	=> \$socketuser,
 	"socketgroup=s"	=> \$socketgroup,
 	"socketmode=s"	=> \$socketmode,
-	"slave=s"		=> \$slave,
+	"server=s"		=> \$server,
+	"slave=s"		=> \$server,	# deprecated
 	"feedset=s"		=> \$composite,
 	"user=s"		=> \$user,
 	"group=s"		=> \$group,
@@ -180,7 +181,7 @@ while (my $socket = $listen->accept()) {
 	$query->identity($in{sender}, IDT_DOMAIN_NAME, "smtp.env.mail-from")
 			if exists $in{sender};
 
-	my ($shost, $sport) = split(/:/, $slave) if $slave;
+	my ($shost, $sport) = split(/:/, $server) if $server;
 	my %mkcargs = (
 		PeerHost	=> $shost,
 		PeerPort	=> $sport,

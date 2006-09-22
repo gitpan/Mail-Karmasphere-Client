@@ -31,7 +31,7 @@ my $result = GetOptions(
 
 if (!$result){
 	print << "EOH";
-Usage: $0 [--host=<slave.hostname.com>] [--port=<portnum>]
+Usage: $0 [--host=<query.karmasphere.com>] [--port=<portnum>]
     [--tcp]
 	[--feed=<feedname> ...]
 	[--composite=<compositename> ...]

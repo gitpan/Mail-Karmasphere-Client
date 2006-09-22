@@ -36,7 +36,7 @@ CONSTRUCTOR
 
     PeerAddr
         The IP address or hostname to contact. See IO::Socket::INET. The
-        default is 'slave.karmasphere.com'.
+        default is 'query.karmasphere.com'.
 
     PeerPort
         The TCP or UDP to contact. See IO::Socket::INET. The default is
@@ -48,12 +48,12 @@ CONSTRUCTOR
     Principal
         An identifier used to authenticate client connections. This may be a
         login or account name. The precise details will depend on the policy
-        of the slave server being used.
+        of the query server being used.
 
     Credentials
         The credentials used to authenticate the principal. This may be a
         password, or a certificate. The precise details may depend on the
-        policy of the slave server being used.
+        policy of the query server being used.
 
     Debug
         Either a true value for debugging to stderr, or a custom debug
