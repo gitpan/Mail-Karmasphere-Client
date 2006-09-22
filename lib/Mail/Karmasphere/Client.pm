@@ -35,7 +35,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.00";
+	$VERSION = "2.01";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -360,7 +360,7 @@ L<Mail::SpamAssassin::Plugin::Karmasphere>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2005 Shevek, Karmasphere. All rights reserved.
+Copyright (c) 2005-2006 Shevek, Karmasphere. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

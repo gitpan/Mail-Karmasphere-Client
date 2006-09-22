@@ -23,14 +23,16 @@ sub facts {
 	my $self = shift;
 	return $self->{f} if exists $self->{f};
 	return $self->{facts} if exists $self->{facts};
-	return [];
+	$self->{f} = [];
+	return $self->{f};
 }
 
 sub combinations {
 	my $self = shift;
 	return $self->{c} if exists $self->{c};
 	return $self->{combiners} if exists $self->{combiners};
-	return [];
+	$self->{c} = {};
+	return $self->{c};
 }
 
 sub combination {
