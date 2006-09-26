@@ -79,7 +79,7 @@ for my $type (keys %ids) {
 
 push(@ids, [ '127.0.0.2', IDT_IP4 ]) unless @ids;
 unless (@composites || @feeds) {
-	push(@composites, "karmasphere.emailchecker");
+	push(@composites, "karmasphere.email-sender");
 }
 
 my %args = ();

@@ -12,8 +12,8 @@ use Mail::SpamAssassin::Logger;
 use Mail::Karmasphere::Client qw(:ALL);
 
 @ISA = qw(Mail::SpamAssassin::Plugin);
-$CONNECT_FEEDSET = 'karmasphere.emailchecker';
-$CONTENT_FEEDSET = 'karmasphere.contentfilter';
+$CONNECT_FEEDSET = 'karmasphere.email-sender';
+$CONTENT_FEEDSET = 'karmasphere.email-body';
 $DEBUG = undef;
 
 # constructor: register the eval rule and parse any config
@@ -447,7 +447,7 @@ Mail::SpamAssassin::Plugin::Karmasphere - Query the Karmasphere reputation syste
 
 	loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
-	karma_feedset connect karmasphere.emailchecker
+	karma_feedset connect karmasphere.email-sender
 	karma_range KARMA_CONNECT_0_10	connect 0 10
 	score KARMA_CONNECT_0_10	0.1
 
@@ -490,7 +490,7 @@ A karma score range. B<context> is either B<connect> or B<content>
 =item B<karma_feedset> context feedsetname
 
 The feedset name to query in the given context information.  The
-default for the B<connect> context is C<karmasphere.emailchecker>.
+default for the B<connect> context is C<karmasphere.email-sender>.
 The default for the B<content> filter context is
 C<karmasphere.contentfilter>.
 

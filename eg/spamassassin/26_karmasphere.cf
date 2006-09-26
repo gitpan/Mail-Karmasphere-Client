@@ -24,15 +24,19 @@ loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
 ifplugin Mail::SpamAssassin::Plugin::Karmasphere
 
-karma_range KARMA_CONNECT_POSITIVE	connect  0.1   1000
-karma_range KARMA_CONNECT_NEGATIVE	connect -1000 -0.1
-karma_range KARMA_CONTENT_POSITIVE	content  0.1   1000
-karma_range KARMA_CONTENT_NEGATIVE	content -1000 -0.1
+# karma_feedset connect karmasphere.email-sender
+# karma_feedset content karmasphere.email-sender
 
-score	KARMA_CONNECT_POSITIVE  -1.0
-score	KARMA_CONNECT_NEGATIVE   1.0
-score	KARMA_CONTENT_POSITIVE  -2.0
-score	KARMA_CONTENT_NEGATIVE   2.0
+karma_range KARMA_CONNECT_POSITIVE	connect  300   1000
+karma_range KARMA_CONNECT_NEGATIVE	connect -1000 -300
+
+karma_range KARMA_CONTENT_POSITIVE	content  300   1000
+karma_range KARMA_CONTENT_NEGATIVE	content -1000 -300
+
+score	KARMA_CONNECT_POSITIVE  -2.0
+score	KARMA_CONNECT_NEGATIVE   2.0
+score	KARMA_CONTENT_POSITIVE  -1.0
+score	KARMA_CONTENT_NEGATIVE   1.0
 
 add_header all Karma-Connect _KARMASCORE(connect)_: _KARMADATA(connect)_
 add_header all Karma-Content _KARMASCORE(content)_: _KARMADATA(content)_

@@ -11,7 +11,7 @@ SYNOPSIS
 
             my $query = new Mail::Karmasphere::Query();
             $query->identity('123.45.6.7', IDT_IP4);
-            $query->composite('karmasphere.emailchecker');
+            $query->composite('karmasphere.email-sender');
             my $response = $client->ask($query, 60);
             print $response->as_string;
 
@@ -21,7 +21,7 @@ SYNOPSIS
 
             my $response = $client->query(
                     Identities      => [ ... ]
-                    Composite       => 'karmasphere.emailchecker',
+                    Composite       => 'karmasphere.email-sender',
                             );
 
 DESCRIPTION

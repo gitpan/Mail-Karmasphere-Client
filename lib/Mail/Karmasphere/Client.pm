@@ -35,7 +35,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.02";
+	$VERSION = "2.03";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -234,7 +234,7 @@ Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 
 	my $query = new Mail::Karmasphere::Query();
 	$query->identity('123.45.6.7', IDT_IP4);
-	$query->composite('karmasphere.emailchecker');
+	$query->composite('karmasphere.email-sender');
 	my $response = $client->ask($query, 60);
 	print $response->as_string;
 
@@ -244,7 +244,7 @@ Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 
 	my $response = $client->query(
 		Identities	=> [ ... ]
-		Composite	=> 'karmasphere.emailchecker',
+		Composite	=> 'karmasphere.email-sender',
 			);
 
 =head1 DESCRIPTION

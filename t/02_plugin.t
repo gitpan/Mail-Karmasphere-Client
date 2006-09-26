@@ -117,7 +117,7 @@ $CONNECT = sub {
 	ok($query->has_identities, 'Query has identities');
 	is(4, scalar(@{ $query->identities }), 'Query has 4 identities');
 	ok($query->has_composites, 'Query has composites');
-	is('karmasphere.emailchecker', $query->composites->[0],
+	is('karmasphere.email-sender', $query->composites->[0],
 					'Connection composite is correct.');
 };
 $CONTENT = sub {
@@ -128,7 +128,7 @@ $CONTENT = sub {
 	is('karmasphere.nonexistent', $query->composites->[0],
 					'Content composite is correct.');
 	# Prevent the query from being sent to a duff feedset.
-	$query->{Composites} = [ 'karmasphere.contentfilter' ];
+	$query->{Composites} = [ 'karmasphere.email-body' ];
 };
 my $status = $main->check($mail);
 

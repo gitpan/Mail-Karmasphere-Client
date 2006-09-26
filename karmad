@@ -17,7 +17,7 @@ sub usage {
 
 my $help;
 my ($server, $user, $group, $port, $path);
-my $composite = "karmasphere.emailchecker";
+my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
 

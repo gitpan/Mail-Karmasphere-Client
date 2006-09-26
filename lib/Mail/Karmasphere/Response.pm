@@ -99,7 +99,8 @@ sub as_string {
 		}
 		foreach (@names) {
 			my $value = $self->value($_);
-			my $data = $self->data($_) || '(undef)';
+			my $data = $self->data($_);
+			$data = '(undef)' unless defined $data;
 			$out .= "Combiner '$_': verdict $value ($data)\n";
 		}
 		foreach (@{$self->facts}) {
