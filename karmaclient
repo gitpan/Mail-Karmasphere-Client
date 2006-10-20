@@ -68,7 +68,7 @@ my %ids = (
 
 for my $type (keys %ids) {
 	for my $id (@{ $ids{$type} }) {
-		if ($id =~ /([^=])+=([a-z\.]+)/) {
+	    if ($id =~ /^(.*)=([a-z\.-]+)$/) {
 			push(@ids, [ $1, $type, $2 ]);
 		}
 		else {

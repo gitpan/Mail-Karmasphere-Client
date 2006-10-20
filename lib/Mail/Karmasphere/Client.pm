@@ -35,7 +35,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.03";
+	$VERSION = "2.04";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -161,7 +161,7 @@ sub _recv_real {
 	else {
 		$socket->recv($data, 8192)
 					or die "Failed to receive from socket: $!";
-        $self->{Debug}->('recv_data', $data) if $self->{Debug};
+		$self->{Debug}->('recv_data', $data) if $self->{Debug};
 	}
 	my $packet = bdecode($data);
 	die $packet unless ref($packet) eq 'HASH';
@@ -184,7 +184,7 @@ sub recv {
 
 	my $socket = $self->{Socket};
 
-	$timeout = 60 unless defined $timeout;
+	$timeout = 10 unless defined $timeout;
 	my $finish = time() + $timeout;
 	my $select = new IO::Select();
 	$select->add($socket);
@@ -213,10 +213,15 @@ sub recv {
 
 sub ask {
 	my ($self, $query, $timeout) = @_;
-	my $id = $self->send($query);
-	my $response = $self->recv($query, $timeout);
-	# $response->{query} = $query;
-	return $response;
+	$timeout = 5 unless defined $timeout;
+	for (0..2) {
+		my $id = $self->send($query);
+		my $response = $self->recv($query, $timeout);
+		# $response->{query} = $query;
+		return $response if $response;
+		$timeout += $timeout;
+	}
+	return undef;
 }
 
 =head1 NAME
@@ -235,12 +240,12 @@ Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 	my $query = new Mail::Karmasphere::Query();
 	$query->identity('123.45.6.7', IDT_IP4);
 	$query->composite('karmasphere.email-sender');
-	my $response = $client->ask($query, 60);
+	my $response = $client->ask($query, 6);
 	print $response->as_string;
 
 	my $id = $client->send($query);
-	my $response = $client->recv($query, 60);
-	my $response = $client->recv($id, 60);
+	my $response = $client->recv($query, 12);
+	my $response = $client->recv($id, 12);
 
 	my $response = $client->query(
 		Identities	=> [ ... ]
@@ -303,9 +308,13 @@ messages from certain contexts.
 =item $response = $client->ask($query, $timeout)
 
 Returns a L<Mail::Karmasphere::Response> to a
-L<Mail::Karmasphere::Query>. This is equivalent to
+L<Mail::Karmasphere::Query>. The core of this method is equivalent to
 
 	$client->recv($client->send($query), $timeout)
+
+The method retries up to 3 times, doubling the timeout each time. If
+the application requires more control over retries or backoff, it
+should use send() and recv() individually. $timeout is optional.
 
 =item $id = $client->send($query)
 
