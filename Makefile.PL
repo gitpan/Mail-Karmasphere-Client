@@ -6,6 +6,7 @@ my @programs = ();
 for (split "\n", <<'QUERIES') {
 karmaclient|y|Karmasphere command line query client
 karmad|y|Karmasphere postfix/exim daemon
+karma-publish|y|Karmasphere feed publisher command
 QUERIES
 	my ($program, $default, $description) = split /\|/, $_;
 	if (prompt("Do you want to install '$program', the $description?", 
@@ -18,10 +19,13 @@ WriteMakefile(
     'NAME'		=> 'Mail::Karmasphere::Client',
     'VERSION_FROM'	=> 'lib/Mail/Karmasphere/Client.pm',
     'PREREQ_PM'		=> {
-				'Convert::Bencode'				=> 0,
-				'IO::Socket'					=> 0,
-				'IO::Select'					=> 0,
-				'Time::HiRes'					=> 0,
+				'Convert::Bencode'	=> 0,
+				'IO::Socket'		=> 0,
+				'IO::Select'		=> 0,
+				'Time::HiRes'		=> 0,
+				'Text::CSV'		=> 0,
+				'LWP'			=> 0,
+				'HTTP::Request'		=> 0,
 			},
 	ABSTRACT_FROM => 'lib/Mail/Karmasphere/Client.pm',
 	AUTHOR     => 'Shevek <cpan@anarres.org>',

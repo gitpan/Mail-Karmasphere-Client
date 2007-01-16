@@ -12,12 +12,12 @@ SYNOPSIS
             my $query = new Mail::Karmasphere::Query();
             $query->identity('123.45.6.7', IDT_IP4);
             $query->composite('karmasphere.email-sender');
-            my $response = $client->ask($query, 60);
+            my $response = $client->ask($query, 6);
             print $response->as_string;
 
             my $id = $client->send($query);
-            my $response = $client->recv($query, 60);
-            my $response = $client->recv($id, 60);
+            my $response = $client->recv($query, 12);
+            my $response = $client->recv($id, 12);
 
             my $response = $client->query(
                     Identities      => [ ... ]
@@ -64,9 +64,13 @@ CONSTRUCTOR
 METHODS
     $response = $client->ask($query, $timeout)
         Returns a Mail::Karmasphere::Response to a Mail::Karmasphere::Query.
-        This is equivalent to
+        The core of this method is equivalent to
 
                 $client->recv($client->send($query), $timeout)
+
+        The method retries up to 3 times, doubling the timeout each time. If
+        the application requires more control over retries or backoff, it
+        should use send() and recv() individually. $timeout is optional.
 
     $id = $client->send($query)
         Sends a Mail::Karmasphere::Query to the server, and returns the id

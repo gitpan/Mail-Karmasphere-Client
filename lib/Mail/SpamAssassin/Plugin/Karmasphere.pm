@@ -9,7 +9,8 @@ use Data::Dumper;
 use Time::HiRes;
 use Mail::SpamAssassin::Plugin;
 use Mail::SpamAssassin::Logger;
-use Mail::Karmasphere::Client qw(:ALL);
+use Mail::Karmasphere::Client qw(:all);
+use Mail::Karmasphere::Query qw(:all);
 
 @ISA = qw(Mail::SpamAssassin::Plugin);
 $CONNECT_FEEDSET = 'karmasphere.email-sender';
