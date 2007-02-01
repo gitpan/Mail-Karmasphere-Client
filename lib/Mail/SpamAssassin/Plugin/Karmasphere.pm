@@ -49,6 +49,7 @@ sub set_config {
 			if ($value =~ /^(\S+)\s+(\S+)$/) {
 				my ($context, $composite) = ($1, $2);
 				$self->{karma_feedset}->{$context} = $composite;
+				return undef;
 			}
 			elsif (! length $value) {
 				return $Mail::SpamAssassin::Conf::MISSING_REQUIRED_VALUE;
@@ -69,9 +70,11 @@ sub set_config {
 								($1, $2, 0+$3, 0+$4);
 				$self->{karma_rules}->{$rulename} =
 								[ $context, $min, $max ];
+				# Does anyone remember what this line does?
 				$self->{parser}->add_test($rulename,
 						"check_karma_range('$context', '$min', '$max')",
 						$Mail::SpamAssassin::Conf::TYPE_FULL_EVALS);
+				return undef;
 			}
 			elsif (! length $value) {
 				return $Mail::SpamAssassin::Conf::MISSING_REQUIRED_VALUE;

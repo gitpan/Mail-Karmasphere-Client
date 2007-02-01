@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Mail::Karmasphere::Publisher;
+
+my ($file, $magic);
+my $URL = 'http://my.karmasphere.com/app/account/feed/feed_data';
+my ($url, $user, $pass, $feed, $htuser, $htpass);
+my $action = 'publish';
+my ($debug);
+
+my $result = GetOptions(
+	"file=s"		=> \$file,
+	"magic=s"		=> \$magic,
+	"url=s"			=> \$url,
+	"username=s"	=> \$user,
+	"password=s"	=> \$pass,
+	"htuser=s"	=> \$htuser,
+	"htpass=s"	=> \$htpass,
+	"feed=s"		=> \$feed,
+	"action=s"		=> \$action,
+	"debug"			=> \$debug,
+);
+
+if (!$result){
+	print << "EOH";
+Usage: $0 --file=<file> --magic=<magic>
+	[--username=<username> --password=<password>]
+	[--htuser=<username> --htpass=<password>]
+	[--url=http://my.karmasphere.com/app/account/feed/feed_data]
+	--feed=<keyname>
+
+Example:
+  Upload an IP4 address feed:
+    $0 --file=myfile.list --feed=my.feed --action=upload --username=my --password=secret
+EOH
+	exit 1;
+}
+
+my %magic = map { split } <<EOMAGIC;
+rbl.simpleip	    Mail::Karmasphere::Parser::RBL::SimpleIP
+rbl.url	       	    Mail::Karmasphere::Parser::RBL::URL
+rbl.mixed           Mail::Karmasphere::Parser::RBL::Mixed
+rbl.domain	    Mail::Karmasphere::Parser::RBL::Domain
+simple.iplist       Mail::Karmasphere::Parser::Simple::IPList
+simple.urllist      Mail::Karmasphere::Parser::Simple::URLList
+simple.domainlist   Mail::Karmasphere::Parser::Simple::DomainList
+simple.emaillist    Mail::Karmasphere::Parser::Simple::EmailList
+score.ip            Mail::Karmasphere::Parser::Score::IP4
+EOMAGIC
+
+unless ($magic) {
+	die "Command line argument --magic is required.";
+}
+my $class = $magic{$magic};
+unless ($class) {
+	eval qq{ require $magic };
+	if ($@ =~ /^Can't locate/) { }
+	elsif ($@) { warn $@; }
+	else { $class = $magic; }
+}
+unless ($class) {
+	my $name = "Mail::Karmasphere::Parser::$magic";
+	$name =~ s/[-\.\/]/::/g;
+	eval qq{ require $name };
+	if ($@ =~ /^Can't locate/) { }
+	elsif ($@) { warn $@; }
+	else { $class = $name; }
+}
+unless ($class) {
+	die "Could not guess parser class from $magic";
+}
+
+unless (defined $file) {
+	die "Command line argument --file is required.";
+}
+unless (-e $file) {
+	die "File $file not found.";
+}
+
+my $publisher = new Mail::Karmasphere::Publisher();
+if ($action eq 'publish') {
+    
+    my %params = ( user => $user,
+		   pass => $pass,
+		   url  => ($url || $URL),
+		   feed => $feed,
+	       );
+
+    use Data::Dumper;
+    print Dumper(\%params);
+
+    $params{htuser} = $htuser if defined $htuser;
+    $params{htpass} = $htpass if defined $htpass;
+
+	$publisher->publish($file, $class,
+			    \%params,
+			    );
+}
+elsif ($action eq 'parse') {
+	$publisher->parse($file, $class);
+}
+else {
+	die "Unknown action $action";
+}

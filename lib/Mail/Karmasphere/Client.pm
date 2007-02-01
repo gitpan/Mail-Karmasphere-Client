@@ -35,7 +35,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.05";
+	$VERSION = "2.06";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -113,13 +113,13 @@ sub send {
 
 	my $packet = {
 		_	=> $id,
-		i	=> $query->identities,
 	};
+	$packet->{i} = $query->identities if $query->has_identities;
 	$packet->{s} = $query->composites if $query->has_composites;
 	$packet->{f} = $query->feeds if $query->has_feeds;
 	$packet->{c} = $query->combiners if $query->has_combiners;
 	$packet->{fl} = $query->flags if $query->has_flags;
-	# $self->{Debug}->('send_packet', $packet) if $self->{Debug};
+	$self->{Debug}->('send_packet', $packet) if $self->{Debug};
 	if (defined $self->{Principal}) {
 		my $creds = defined $self->{Credentials} ? $self->{Credentials} : '';
 		$packet->{a} = [ $self->{Principal}, $creds ];
@@ -175,11 +175,19 @@ sub recv {
 	my ($self, $query, $timeout) = @_;
 
 	my $id = ref($query) ? $query->id : $query;
-	if ($QUEUE{$id}) {
-		$self->{Debug}->('recv_find', $id, $QUEUE{$id})
-						if $self->{Debug};
-		@QUEUE = grep { $_ ne $id } @QUEUE;
-		return delete $QUEUE{$id};
+	if (defined($id)) {
+		if ($QUEUE{$id}) {
+			$self->{Debug}->('recv_find', $id, $QUEUE{$id})
+							if $self->{Debug};
+			@QUEUE = grep { $_ ne $id } @QUEUE;
+			return delete $QUEUE{$id};
+		}
+	}
+	else {
+		if (@QUEUE) {
+			$id = shift @QUEUE;
+			return delete $QUEUE{$id};
+		}
 	}
 
 	my $socket = $self->{Socket};
@@ -194,6 +202,7 @@ sub recv {
 		if (@ready) {
 			my $response = $self->_recv_real();
 			$response->{query} = $query if ref $query;
+			return $response unless defined $id;
 			return $response if $response->id eq $id;
 
 			my $rid = $response->id;
