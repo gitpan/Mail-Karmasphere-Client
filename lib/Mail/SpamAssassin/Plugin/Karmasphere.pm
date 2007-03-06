@@ -101,7 +101,7 @@ sub set_config {
 
 	push (@cmds, {
 		setting		=> 'karma_timeout',
-		default		=> '15',
+		default		=> '5',
 		is_admin	=> 1,
 		type		=> $Mail::SpamAssassin::Conf::CONF_TYPE_NUMERIC
 	});
@@ -303,7 +303,8 @@ sub _karma_send {
 
 		if ($query->has_identities) {
 			my $qid = $client->send($query);
-			$scanner->{karma}->{id}->{connect} = $qid;
+			# $scanner->{karma}->{id}->{connect} = $qid;
+			$scanner->{karma}->{queries}->{connect} = $query;
 		}
 		else {
 			dbg("karma: No identities in connect packet");
@@ -320,8 +321,8 @@ sub _karma_send {
 		$self->add_content_other($scanner, $query);
 
 		if ($query->has_identities) {
-			my $qid = $client->send($query);
-			$scanner->{karma}->{id}->{content} = $qid;
+			$client->send($query);
+			$scanner->{karma}->{queries}->{content} = $query;
 		}
 		else {
 			dbg("karma: No identities in content packet");
@@ -340,31 +341,51 @@ sub _karma_recv {
 	my $client = $self->_karma_client($conf);
 
 	my $timeout = $conf->{karma_timeout};
+	$timeout = 2 if $timeout < 2;
 	dbg("_karma_recv: timeout=$timeout");
-	my $finish = time() + $timeout;
-	my $id_connect = $scanner->{karma}->{id}->{connect};
-	my $response_connect = undef;
-	if ($id_connect) {
-		dbg("_karma_recv: id_connect=$id_connect");
-		$response_connect = $client->recv($id_connect, $timeout);
-		# This warns about undefined if it times out.
-		# dbg("_karma_recv: response_connect=$response_connect");
+	my $retries = 3;
+
+	my $queries = $scanner->{karma}->{queries};
+	my $remaining = scalar keys %$queries;
+	my $responses = {};
+	# As we come into here, we sent a first round of queries some
+	# time ago. That is the 'normal' SpamAssassin pattern. We also
+	# support resends at this stage. We hope not to have to resend
+	# any queries, but it might happen.
+	RETRY: for my $retry (1..$retries) {
+		my $finish = time() + $timeout;
+		for my $context (keys %$queries) {
+			my $query = $queries->{$context};
+			next if $responses->{$context};
+			my $response = $client->recv($query, $finish - time());
+			if ($response) {
+				$responses->{$context} = $response;
+				$remaining--;
+			}
+		}
+
+		last RETRY unless $remaining;
+		# No point doing a resend if we aren't going to do another
+		# receive-cycle.
+		last RETRY if $retry == $retries;
+
+		dbg("_karma_recv: retrying some queries");
+		$timeout = $timeout * 2;
+		for my $context (keys %$queries) {
+			my $query = $queries->{$context};
+			next if $responses->{$context};
+			$client->send($query);
+		}
 	}
 
-	my $id_content = $scanner->{karma}->{id}->{content};
-	my $response_content = undef;
-	if ($id_content) {
-		dbg("_karma_recv: id_content=$id_content");
-		$response_content = $client->recv($id_content,
-						$finish - time());
-		# This warns about undefined if it times out.
-		# dbg("_karma_recv: response_content=$response_content");
+	# Indicate if any queries failed/timed out.
+	for my $context (keys %$queries) {
+		my $query = $queries->{$context};
+		next if $responses->{$context};
+		$responses->{$context} = undef;
 	}
 
-	return {
-		connect	=> $response_connect,
-		content	=> $response_content,
-	};
+	return $responses;
 }
 
 # The two hooks
@@ -390,6 +411,15 @@ sub check_post_dnsbl {
 
 	# return unless keys %$responses;
 
+	my $queries = $scanner->{karma}->{queries};
+	my %queries;
+	while (my ($context, $query) = each(%$queries)) {
+		$queries{$context} = $query->as_string;
+		chomp $queries{$context};
+		$queries{$context} =~ s/\n/ \/ /g;
+	}
+
+	my %responses;
 	my %values;
 	my %data;
 	while (my ($context, $response) = each(%$responses)) {
@@ -399,6 +429,10 @@ sub check_post_dnsbl {
 		$values{$context} = $value;
 		my $data = $response->data($composite);
 		$data{$context} = $data;
+
+		$responses{$context} = $response->as_string;
+		chomp $responses{$context};
+		$responses{$context} =~ s/\n/ \/ /g;
 	}
 
 	# Do something with closures.
@@ -411,6 +445,16 @@ sub check_post_dnsbl {
 		my $context = shift;
 		return $data{$context} if defined $data{$context};
 		return '(null data)';
+	});
+	$scanner->set_tag("KARMARESPONSE", sub {
+		my $context = shift;
+		return $responses{$context} if defined $responses{$context};
+		return '(null response)';
+	});
+	$scanner->set_tag("KARMAQUERY", sub {
+		my $context = shift;
+		return $queries{$context} if defined $queries{$context};
+		return '(null query)';
 	});
 
 	# print STDERR Dumper(\%values);

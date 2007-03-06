@@ -86,22 +86,28 @@ sub data {
 sub _quote {
 	my $value = shift;
 	return $value unless $value =~ m/["', ]/;
-	$value =~ s/"/\\"/g;
+	$value =~ s/"/""/g;
 	return '"' . $value . '"';
 }
 
+# poor man's CSV.
+# produces one of
+#   1.2.3.4
+#   1.2.3.4,-1000 (or some other number)
+#   1.2.3.4,1000,"because why"
+#
+# note that  1.2.3.4,1000  is optimized away to just  1.2.3.4
+# 
 sub as_string {
 	my $self = shift;
 	my $out = _quote($self->{i});
-	if ($self->{v} != 1000) {
-		$out = $out . "," . $self->{v};
-		if (exists $self->{d}) {
-			$out = $out . "," . _quote($self->{d});
-		}
-	}
-	elsif (exists $self->{d}) {
-		$out = $out . ",1000," . _quote($self->{d});
-	}
+	my $v1000 = defined $self->{v} ? 1000 : $self->{v};
+	my $v     = $self->{v} == 1000 ? undef : $self->{v};
+
+	$out .= "," . $v1000             if (defined $v or
+		 							     defined $self->{d});
+	$out .= "," . _quote($self->{d}) if (defined $self->{d});
+
 	return $out;
 }
 

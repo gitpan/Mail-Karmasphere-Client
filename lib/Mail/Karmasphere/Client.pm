@@ -10,6 +10,7 @@ use Convert::Bencode qw(bencode bdecode);
 use IO::Socket::INET;
 use Time::HiRes;
 use IO::Select;
+use Socket;
 use constant {
 	IDT_IP4_ADDRESS		=> 0,
 	IDT_IP6_ADDRESS		=> 1,
@@ -32,10 +33,14 @@ use constant {
 
 	FL_FACTS		=> 1,
 };
+use constant {
+	PROTO_TCP		=> 0+getprotobyname('tcp'),
+	PROTO_UDP		=> 0+getprotobyname('udp'),
+};
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.06";
+	$VERSION = "2.07";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -68,6 +73,11 @@ sub new {
 	my $class = shift;
 	my $self = ($#_ == 0) ? { %{ (shift) } } : { @_ };
 
+	if ($self->{Debug} and ref($self->{Debug}) ne 'CODE') {
+		$self->{Debug} = sub { print STDERR Dumper(@_); };
+	}
+	$self->{Debug}->('new', $self) if $self->{Debug};
+
 	unless ($self->{Socket}) {
 		$self->{Proto} = 'udp'
 						unless defined $self->{Proto};
@@ -77,26 +87,70 @@ sub new {
 						unless defined $self->{PeerAddr};
 		$self->{PeerPort} = 8666
 						unless $self->{Port};
-		$self->{Socket} = new IO::Socket::INET(
-			Proto			=> $self->{Proto},
-			PeerAddr		=> $self->{PeerAddr},
-			PeerPort		=> $self->{PeerPort},
-			ReuseAddr		=> 1,
-		)
-				or die "Failed to create socket: $! (%$self)";
+		_connect($self);
 	}
-
-	if ($self->{Debug} and ref($self->{Debug}) ne 'CODE') {
-		$self->{Debug} = sub { print STDERR Dumper(@_); };
-	}
-	$self->{Debug}->('new', $self) if $self->{Debug};
 
 	return bless $self, $class;
+}
+
+sub _connect {
+	my $self = shift;
+	$self->{Debug}->('connect') if $self->{Debug};
+	$self->{Socket} = new IO::Socket::INET(
+		Proto			=> $self->{Proto},
+		PeerAddr		=> $self->{PeerAddr},
+		PeerPort		=> $self->{PeerPort},
+		ReuseAddr		=> 1,
+	)
+			or die "Failed to create socket: $! (%$self)";
 }
 
 sub query {
 	my $self = shift;
 	return $self->ask(new Mail::Karmasphere::Query(@_));
+}
+
+sub _previous_socket {
+	my $self = shift;
+	return undef unless exists $self->{PreviousTime};
+	if ($self->{PreviousTime} + 10 > time()) {
+		$self->{Debug}->('previous') if $self->{Debug};
+		return $self->{PreviousSocket}
+	}
+	delete $self->{PreviousSocket};
+	delete $self->{PreviousTime};
+	return undef;
+}
+
+sub _is_tcp {
+	my ($self, $socket) = @_;
+	return $socket->protocol == PROTO_TCP;
+}
+
+sub _send_real {
+	my ($self, $data) = @_;
+
+	my $socket = $self->{Socket};
+
+	if ($socket->protocol == PROTO_UDP) {
+		if (length $data > 1024) {	# Server's UDP_MAX
+			$self->{Debug}->('fallback') if $self->{Debug};
+			$self->{PreviousSocket} = $self->{Socket};
+			$self->{PreviousTime} = time();
+			$self->{Proto} = 'tcp';
+			# XXX This loses the old socket and any queries
+			# sent thereon.
+			$self->_connect();
+			$socket = $self->{Socket};
+		}
+	}
+	# This can NOT be an else as we clobber the variable above.
+	if ($socket->protocol == PROTO_TCP) {
+		$self->{Debug}->('tcp prefix') if $self->{Debug};
+		$data = pack("N", length($data)) . $data;
+	}
+	$socket->send($data)
+					or die "Failed to send to socket: $!";
 }
 
 sub send {
@@ -128,23 +182,16 @@ sub send {
 	my $data = bencode($packet);
 	$self->{Debug}->('send_data', $data) if $self->{Debug};
 
-	if ($self->{Proto} eq 'tcp') {
-		$data = pack("N", length($data)) . $data;
-	}
+	$self->_send_real($data);
 
-	my $socket = $self->{Socket};
-	$socket->send($data)
-					or die "Failed to send to socket: $!";
 	return $id;
 }
 
 sub _recv_real {
-	my $self = shift;
-
-	my $socket = $self->{Socket};
+	my ($self, $socket) = @_;
 
 	my $data;
-	if ($self->{Proto} eq 'tcp') {
+	if ($socket->protocol == PROTO_TCP) {
 		$socket->read($data, 4)
 					or die "Failed to receive length from socket: $!";
 		my $length = unpack("N", $data);
@@ -190,17 +237,17 @@ sub recv {
 		}
 	}
 
-	my $socket = $self->{Socket};
-
 	$timeout = 10 unless defined $timeout;
 	my $finish = time() + $timeout;
 	my $select = new IO::Select();
-	$select->add($socket);
+	$select->add($self->{Socket});
+	my $prev = $self->_previous_socket;
+	$select->add($prev) if $prev;
 	while ($timeout > 0) {
 		my @ready = $select->can_read($timeout);
 
 		if (@ready) {
-			my $response = $self->_recv_real();
+			my $response = $self->_recv_real($ready[0]);
 			$response->{query} = $query if ref $query;
 			return $response unless defined $id;
 			return $response if $response->id eq $id;

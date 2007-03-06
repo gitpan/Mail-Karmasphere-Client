@@ -37,7 +37,9 @@ README
 t/01_use.t
 t/02_client.t
 t/03_plugin.t
+t/04_fallback.t
 t/05_guess_idtype.t
+t/06_string.t
 t/10_rbl_mixed.t
 t/11_simpleip.t
 t/12_score.t

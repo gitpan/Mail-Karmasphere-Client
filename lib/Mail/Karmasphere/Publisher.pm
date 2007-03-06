@@ -88,12 +88,8 @@ sub publish {
 					   $params->{htpass});
     }
     
-    print $req->as_string;
-
     my $res = $ua->request($req);
-    
-    print $res->as_string;
-	
+	return $res;
 }
 
 

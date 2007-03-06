@@ -252,6 +252,39 @@ sub has_flags {
 	return 1;
 }
 
+sub _as_string_sizeof {
+	my $ref = shift;
+	return "0" unless defined $ref;
+	return scalar(@$ref);
+}
+
+sub as_string {
+	my ($self) = @_;
+	my $out = "Query id '" . $self->id . "': ";
+	$out .= _as_string_sizeof($self->{Identities}) . ' identities, ';
+	$out .= _as_string_sizeof($self->{Feeds}) . ' feeds, ';
+	$out .= _as_string_sizeof($self->{Combiners}) . " combiners\n";
+	if ($self->{Identities}) {
+		for (@{ $self->{Identities} }) {
+			my ($id, $t, @t) = @$_;
+			$out .= "Identity: $id ($t)";
+			$out .= " (= @t)" if @t;
+			$out .= "\n";
+		}
+	}
+	if ($self->{Combiners}) {
+		$out .= "Combiners: " .
+				join(' ', sort @{ $self->{Combiners} } ) .
+				"\n";
+	}
+	if ($self->{Feeds}) {
+		$out .= "Feeds: " .
+				join(' ', sort @{ $self->{Feeds} } ) .
+				"\n";
+	}
+	return $out;
+}
+
 =head1 NAME
 
 Mail::Karmasphere::Query - Karmasphere Query Object

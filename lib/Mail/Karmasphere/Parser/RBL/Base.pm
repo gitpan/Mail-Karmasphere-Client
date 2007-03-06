@@ -83,7 +83,7 @@ sub a_to_value {
   # and 127.0.0.4 means "white",
   # this is where we would put the logic to return the appropriate value.
 
-  my $value = defined $self->{Value} ? $self->{Value} : -31337;
+  my $value = defined $self->{Value} ? $self->{Value} : 1000;
 
   # exclusions are operated as whitelists
   return - $value if $self->{is_exclusion};
