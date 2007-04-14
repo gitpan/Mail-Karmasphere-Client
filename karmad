@@ -178,7 +178,7 @@ while (my $socket = $listen->accept()) {
 			if exists $in{ip};
 	$query->identity($in{helo}, IDT_DOMAIN_NAME, "smtp.env.helo")
 			if exists $in{helo};
-	$query->identity($in{sender}, IDT_DOMAIN_NAME, "smtp.env.mail-from")
+	$query->identity($in{sender}, IDT_EMAIL_ADDRESS, "smtp.env.mail-from")
 			if exists $in{sender};
 
 	my ($shost, $sport) = split(/:/, $server) if $server;

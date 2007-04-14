@@ -40,7 +40,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.07";
+	$VERSION = "2.08";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -264,6 +264,7 @@ sub recv {
 		$timeout = $finish - time();
 	}
 
+	print STDERR "Failed to receive from socket: $!\n";
 	return undef;
 }
 
