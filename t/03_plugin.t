@@ -20,7 +20,7 @@ if ($@) {
 	plan skip_all => "Could not load Mail::SpamAssassin::Plugin";
 }
 else {
-	plan tests => 31;
+	plan tests => 35;
 }
 
 use_ok('Mail::SpamAssassin', 3.0);
@@ -145,6 +145,14 @@ like($str, qr/^-?[0-9]+$/, 'Karma score tag was replaced by a number.');
 $str = $status->_replace_tags("_KARMADATA(connect)_");
 ok(defined $str, 'Replace data tag returned a good value');
 unlike($str, qr/KARMA/, 'Karma data tag is gone.');
+
+$str = $status->_replace_tags("_KARMAFACTS(connect)_");
+ok(defined $str, 'Replace facts tag returned a good value');
+unlike($str, qr/KARMA/, 'Karma facts tag is gone.');
+my $aryref = eval $str;
+die $@ if $@;
+ok(!$@, "Karma facts tag value eval'd OK");
+is(ref $aryref, 'ARRAY', "Karma facts tag value eval'd to an array.");
 
 my $output = $status->rewrite_mail();
 print STDERR $output, "\n" if $DEBUG;

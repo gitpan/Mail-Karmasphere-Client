@@ -263,6 +263,7 @@ sub as_string {
 	my $out = "Query id '" . $self->id . "': ";
 	$out .= _as_string_sizeof($self->{Identities}) . ' identities, ';
 	$out .= _as_string_sizeof($self->{Feeds}) . ' feeds, ';
+	$out .= _as_string_sizeof($self->{Composites}) . " composites, ";
 	$out .= _as_string_sizeof($self->{Combiners}) . " combiners\n";
 	if ($self->{Identities}) {
 		for (@{ $self->{Identities} }) {
@@ -272,14 +273,19 @@ sub as_string {
 			$out .= "\n";
 		}
 	}
-	if ($self->{Combiners}) {
-		$out .= "Combiners: " .
-				join(' ', sort @{ $self->{Combiners} } ) .
+	if ($self->{Composites}) {
+		$out .= "Composites: " .
+				join(' ', sort @{ $self->{Composites} } ) .
 				"\n";
 	}
 	if ($self->{Feeds}) {
 		$out .= "Feeds: " .
 				join(' ', sort @{ $self->{Feeds} } ) .
+				"\n";
+	}
+	if ($self->{Combiners}) {
+		$out .= "Combiners: " .
+				join(' ', sort @{ $self->{Combiners} } ) .
 				"\n";
 	}
 	return $out;

@@ -60,6 +60,27 @@ sub set_config {
 		},
 	});
 
+	push(@cmds, {
+		setting => 'karma_feed',
+		code    => sub {
+			my $self = shift;
+			my ($key, $value, $line) = @_;
+			if ($value =~ /^(\S+)\s+(\S+)$/) {
+				my ($context, $feeds) = ($1, $2);
+				push(@{ $self->{karma_feeds}->{$context} },
+								split(/\s+/, $feeds));
+				return undef;
+			}
+			elsif (! length $value) {
+				return $Mail::SpamAssassin::Conf::MISSING_REQUIRED_VALUE;
+			}
+			else {
+				return $Mail::SpamAssassin::Conf::INVALID_VALUE;
+			}
+			return undef;
+		},
+	});
+
 	push (@cmds, {
 		setting		=> 'karma_range',
 		code		=> sub {
@@ -156,6 +177,16 @@ sub _karma_client {
 		$self->{Client} = new Mail::Karmasphere::Client(%args);
 	}
 	return $self->{Client};
+}
+
+sub add_feeds {
+	my ($self, $conf, $query, $context) = @_;
+	my $feeds = $conf->{karma_feeds}->{$context};
+	if ($feeds) {
+		$query->feed(@$feeds);
+		my $flags = $query->flags || 0;
+		$query->flags($flags | 1);
+	}
 }
 
 sub add_connect_authentication {
@@ -278,6 +309,12 @@ sub add_content_other {
 	my ($self, $scanner, $query) = @_;
 }
 
+# The unless() conditions in here look a bit strange. The purpose
+# is to permit the user to install both this plugin and several
+# subclasses thereof, while having the whole operate nicely.
+# The subclasses will all co-operate so that only one instance
+# of each query is performed, and the responses are tracked neatly.
+# Each subclass may perform custom processing of the responses.
 sub _karma_send {
 	my ($self, $scanner) = @_;
 
@@ -291,42 +328,50 @@ sub _karma_send {
 	# inconsistent, and I hope it holds up.
 
 	# The connection-time dance
-	{
+	unless ($scanner->{karma}->{queries}->{connect}) {
 		my $query = new Mail::Karmasphere::Query();
 		$query->composite($conf->{karma_feedset}->{connect}
 						|| $CONNECT_FEEDSET);
 
+		$self->add_feeds($conf, $query, 'connect');
 		$self->add_connect_authentication($scanner, $query);
 		$self->add_connect_received($scanner, $query);
 		$self->add_connect_envfrom($scanner, $query);
 		$self->add_connect_other($scanner, $query);
-
-		if ($query->has_identities) {
-			my $qid = $client->send($query);
-			# $scanner->{karma}->{id}->{connect} = $qid;
-			$scanner->{karma}->{queries}->{connect} = $query;
-		}
-		else {
-			dbg("karma: No identities in connect packet");
-		}
+		$self->_karma_send_query($scanner, $query, 'connect');
 	}
 
 	# The content-filtering dance
-	{
+	unless ($scanner->{karma}->{queries}->{content}) {
 		my $query = new Mail::Karmasphere::Query();
 		$query->composite($conf->{karma_feedset}->{content}
 						|| $CONTENT_FEEDSET);
 
+		$self->add_feeds($conf, $query, 'content');
 		$self->add_content_urls($scanner, $query);
 		$self->add_content_other($scanner, $query);
+		$self->_karma_send_query($scanner, $query, 'content');
+	}
 
-		if ($query->has_identities) {
-			$client->send($query);
-			$scanner->{karma}->{queries}->{content} = $query;
-		}
-		else {
-			dbg("karma: No identities in content packet");
-		}
+}
+
+sub _karma_send_query {
+	my ($self, $scanner, $query, $context) = @_;
+
+	dbg("_karma_send: called");
+
+	my $conf = $scanner->{conf};
+	my $client = $self->_karma_client($conf);
+
+	$scanner->{karma}->{queries}->{$context} = $query;
+
+	if ($query->has_identities) {
+		$client->send($query);
+	}
+	else {
+		dbg("karma: No identities in $context packet");
+		$scanner->{karma}->{responses}->{$context} =
+				new Mail::Karmasphere::Response();
 	}
 
 }
@@ -347,7 +392,7 @@ sub _karma_recv {
 
 	my $queries = $scanner->{karma}->{queries};
 	my $remaining = scalar keys %$queries;
-	my $responses = {};
+	my $responses = $scanner->{karma}->{responses};
 	# As we come into here, we sent a first round of queries some
 	# time ago. That is the 'normal' SpamAssassin pattern. We also
 	# support resends at this stage. We hope not to have to resend
@@ -356,7 +401,7 @@ sub _karma_recv {
 		my $finish = time() + $timeout;
 		for my $context (keys %$queries) {
 			my $query = $queries->{$context};
-			next if $responses->{$context};
+			next if exists $responses->{$context};
 			my $response = $client->recv($query, $finish - time());
 			if ($response) {
 				$responses->{$context} = $response;
@@ -444,17 +489,33 @@ sub check_post_dnsbl {
 	$scanner->set_tag("KARMADATA", sub {
 		my $context = shift;
 		return $data{$context} if defined $data{$context};
-		return '(null data)';
+		return "(no data in context $context)";
+	});
+
+	$scanner->set_tag("KARMAQUERY", sub {
+		my $context = shift;
+		return $queries{$context} if defined $queries{$context};
+		return "(no query in context $context)";
 	});
 	$scanner->set_tag("KARMARESPONSE", sub {
 		my $context = shift;
 		return $responses{$context} if defined $responses{$context};
-		return '(null response)';
+		return "(no response in context $context)";
 	});
-	$scanner->set_tag("KARMAQUERY", sub {
+
+	$scanner->set_tag("KARMAFEEDS", sub {
 		my $context = shift;
-		return $queries{$context} if defined $queries{$context};
-		return '(null query)';
+		return 'undef' unless $queries->{$context};
+		local $Data::Dumper::Indent = 0;
+		local $Data::Dumper::Terse = 1;
+		return Dumper($queries->{$context}->feeds);
+	});
+	$scanner->set_tag("KARMAFACTS", sub {
+		my $context = shift;
+		return 'undef' unless $responses->{$context};
+		local $Data::Dumper::Indent = 0;
+		local $Data::Dumper::Terse = 1;
+		return Dumper($responses->{$context}->facts);
 	});
 
 	# print STDERR Dumper(\%values);

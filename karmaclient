@@ -8,6 +8,7 @@ use Mail::Karmasphere::Client qw(:all);
 # use Carp qw(cluck);
 # $SIG{__WARN__} = sub { cluck @_; };
 
+my ($username, $password);
 my ($host, $port, $tcp, $single, $debug, $version);
 my (@feeds, @composites, @combiners);
 my (@ip4, @ip6, @domain, @url, @email);
@@ -24,6 +25,8 @@ my $result = GetOptions(
 	"domain=s"		=> \@domain,
 	"url=s"			=> \@url,
 	"email=s"		=> \@email,
+	"username=s"	=> \$username,
+	"password=s"	=> \$password,
 	"tcp"			=> \$tcp,
 	"single"		=> \$single,
 	"version"		=> \$version,
@@ -31,7 +34,9 @@ my $result = GetOptions(
 
 if (!$result){
 	print << "EOH";
-Usage: $0 [--host=<query.karmasphere.com>] [--port=<portnum>]
+Usage: $0
+	--username=xxx --password=yyy
+    [--host=<query.karmasphere.com>] [--port=<portnum>]
     [--tcp]
 	[--feed=<feedname> ...]
 	[--composite=<compositename> ...]
@@ -43,7 +48,7 @@ Usage: $0 [--host=<query.karmasphere.com>] [--port=<portnum>]
 
 Example:
   Query for an IP4 address and a domain in one packet:
-    $0 --ip4=123.45.6.7 --domain=spammer.com
+    $0 --username=guest --password=guest --ip4=123.45.6.7 --domain=spammer.com
 EOH
 	exit 1;
 }
@@ -87,6 +92,8 @@ $args{PeerHost} = $host if $host;
 $args{PeerPort} = $port if $port;
 $args{Proto} = 'tcp' if $tcp;
 $args{Debug} = 1 if $debug;
+$args{Principal} = $username if $username;
+$args{Credentials} = $password if $password;
 my $client = new Mail::Karmasphere::Client(%args);
 if ($single) {
 	for (@ids) {

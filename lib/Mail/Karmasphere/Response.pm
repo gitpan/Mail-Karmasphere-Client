@@ -12,11 +12,14 @@ sub new {
 
 sub id {
 	my ($self) = @_;
+	$self->{_} = '???' unless defined $self->{_};
 	return $self->{_};
 }
 
 sub time {
-	return $_[0]->{'time'};
+	my $self = shift;
+	return $self->{'time'} if defined $self->{'time'};
+	return '???';
 }
 
 sub facts {
@@ -85,7 +88,7 @@ sub message {
 
 sub as_string {
 	my ($self) = @_;
-	my $out = "Response id '$self->{_}': ";
+	my $out = "Response id '" . $self->id . "': ";
 	$out = $out . $self->time . "ms, ";
 	my @names = $self->combiner_names;
 	$out = $out . scalar(@names) . " combinations, ";

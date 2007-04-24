@@ -40,7 +40,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.08";
+	$VERSION = "2.09";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -101,8 +101,12 @@ sub _connect {
 		PeerAddr		=> $self->{PeerAddr},
 		PeerPort		=> $self->{PeerPort},
 		ReuseAddr		=> 1,
-	)
-			or die "Failed to create socket: $! (%$self)";
+	);
+	unless (defined $self->{Socket}) {
+		delete $self->{Socket};
+		my @args = map { "$_=" . $self->{$_} } keys %$self;
+		die "Failed to create socket: $! (@args)";
+	}
 }
 
 sub query {
@@ -173,11 +177,11 @@ sub send {
 	$packet->{f} = $query->feeds if $query->has_feeds;
 	$packet->{c} = $query->combiners if $query->has_combiners;
 	$packet->{fl} = $query->flags if $query->has_flags;
-	$self->{Debug}->('send_packet', $packet) if $self->{Debug};
 	if (defined $self->{Principal}) {
 		my $creds = defined $self->{Credentials} ? $self->{Credentials} : '';
 		$packet->{a} = [ $self->{Principal}, $creds ];
 	}
+	$self->{Debug}->('send_packet', $packet) if $self->{Debug};
 
 	my $data = bencode($packet);
 	$self->{Debug}->('send_data', $data) if $self->{Debug};
