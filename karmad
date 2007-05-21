@@ -12,11 +12,16 @@ use Mail::Karmasphere::Client qw(:all);
 $PORT_DEFAULT = 8555;
 
 sub usage {
-	print STDERR "Write me\n";
+	print STDERR <<EOUSAGE;
+usage: karmad --username=foo --password=bar
+             [--socket=/tmp/karmad]
+             [--server=query.karmasphere.com]
+             [--feedset=karmasphere.email-sender]
+EOUSAGE
 }
 
 my $help;
-my ($server, $user, $group, $port, $path);
+my ($server, $user, $group, $port, $path, $login, $pass);
 my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -28,10 +33,11 @@ my $result = GetOptions(
 	"socketgroup=s"	=> \$socketgroup,
 	"socketmode=s"	=> \$socketmode,
 	"server=s"		=> \$server,
-	"slave=s"		=> \$server,	# deprecated
 	"feedset=s"		=> \$composite,
 	"user=s"		=> \$user,
 	"group=s"		=> \$group,
+	"username=s"	=> \$login,
+	"password=s",	=> \$pass,
 );
 
 if (!$result or $help) {
@@ -185,6 +191,8 @@ while (my $socket = $listen->accept()) {
 	my %mkcargs = (
 		PeerHost	=> $shost,
 		PeerPort	=> $sport,
+		Principal	=> $login,
+		Credentials	=> $pass,
 	);
 	my $client = new Mail::Karmasphere::Client(%mkcargs);
 
@@ -192,6 +200,11 @@ while (my $socket = $listen->accept()) {
 
 	if ($response) {
 		print STDERR $response->as_string if -t STDERR;
+
+		if ($response->error) {
+			print $socket "error=" . $response->message . "\n";
+		}
+		else {
 
 		my $value = $response->value($composite);
 		$value = 0 unless defined $value;
@@ -208,6 +221,7 @@ while (my $socket = $listen->accept()) {
 		my $data = $response->data($composite);
 		$data = '(null data)' unless defined $data;
 		print $socket "data=", $data, "\n";
+	}
 	}
 	else {
 		print STDERR "timeout\n" if -t STDERR;
@@ -235,13 +249,127 @@ interfaces between Postfix or Exim and L<Mail::Karmasphere::Client>.
 See the sample configuration and startup files in the eg/ directory
 of the source distribution for more information.
 
-=head1 USAGE
+=head1 COMMAND LINE PARAMETERS
 
-To write.
+=over 12
+
+=item --username
+
+=item --password
+
+Query credentials for authenticated queries.  You probably
+need to set this.
+
+These parameters are mandatory unless you are relying on IP
+authentication.  For more information, see
+L<http://www.karmasphere.com/devzone/client/configuration#credentials>
+
+If you have registered for a Karmasphere account, you should
+use the permanent credentials that have been assigned.  See
+L<http://www.karmasphere.com/app/account/auth#query_credentials>
+
+If you have not registered for a Karmasphere account, you
+can use temporary credentials, but those credentials will
+expire after a few weeks.  See the URL above and choose the
+username and password for either "exim" or "postfix".
+
+=item --socket
+
+Where to listen.  Defaults to /tmp/karmad.  You probably
+don't need to set this.
+
+=item --server
+
+Hostname of the Karmasphere Query Server to connect to.
+Defaults to query.karmasphere.com.  You probably don't need
+to set this, unless you have set up a local query server, in
+which case you should be following the directions provided
+with that server.
+
+=item --feedset
+
+The name of the feedset you want to query.  Defaults to
+karmasphere.email-sender.  You probably don't need to set
+this.  
+
+=item --socketuser
+
+=item --socketgroup
+
+Who to listen as; defaults to 'nobody'.  The socket file
+will be chowned to this user and group.  You probably don't
+need to set this.
+
+=item --socketmode
+
+Mode to chmod the socket.  You probably don't need to set
+this.
+
+=item --user
+=item --group
+
+When running, setuid to this user and group.  Defaults to
+'nobody', 'nobody'.  You probably don't need to set this.
+
+=back
+
+=head1 OPERATIONAL USAGE
+
+Connect to the socket (default: /tmp/karmad) and send the
+following newline-terminated stanza:
+
+ ip=192.0.2.1
+ helo=host.example.com
+ sender=localpart@example.com
+
+Each of the above lines is optional; you may omit whatever is unavailable.
+
+If all goes well, Karmad will return the following stanza:
+
+ value=NN
+ opinion=(good|bad|neutral)
+ data=.....
+
+"Value" is a number between -1000 and +1000.
+
+"Opinion" is one of good, bad, or neutral.  If the value is
+greater than 300, opinion is good.  If the value is less
+than -300, the opinion is bad.  If it's between, opinion is
+neutral.
+
+"Data" contains a brief explanation of how the verdict was reached.
+
+If an error occurs, Karmad will return:
+
+ error=...
+
+usually, something like
+
+ error=timeout
+ error=Incorrect user and/or password.
+
+=head1 HOW TO TEST THAT IT'S WORKING
+
+First, run karmad:
+
+ % ./karmad --username=foo --password=bar
+
+Then, connect to it:
+
+ % perl -MIO::Socket::UNIX -le 'my $sock = IO::Socket::UNIX->new("/tmp/karmad"); print $sock "ip=127.0.0.2\n"; print <$sock>;'
+ value=-1000
+ opinion=bad
+ data=some.feedname: if-bad(0) => return-bad(1.0)
+
+You should expect to see some STDERR from the karmad.
+
+If troubleshooting is necessary, try running karmaclient:
+that does in one step what karmad-plus-the-socket-call do in
+two.
 
 =head1 BUGS
 
-This document is incomplete.
+In the response, "opinion" might be more correctly termed "verdict".
 
 =head1 SEE ALSO
 

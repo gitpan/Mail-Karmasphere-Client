@@ -9,7 +9,7 @@
 # 
 #  EXAMPLE RUN
 # 
-#   20070223-20:00:46 mengwong@newyears-wired:~/src/Mail-Karmasphere-Client/trunk% perl -Mlib=lib ./karma-publish --feed=test.ip4 --feed=test.domain --format=ECO.ECO --file=$HOME/share/karma/source/dnswl.eco.de --debug --action=parse
+#   20070223-20:00:46 mengwong@newyears-wired:~/src/Mail-Karmasphere-Client/trunk% perl -Mlib=lib ./karma-publish --feed=test.ip4 --feed=test.domain --format=ECO.ECO --file=$HOME/share/karma/source/dnswl.eco.de --debug --action=parse --username=x --password=y
 #   ...
 #   after two requires, $class=Mail::Karmasphere::Parser::ECO::ECO
 #   test.ip4: 213.30.253.65
@@ -55,13 +55,15 @@ Usage: $0 --file=<file> --format=<format>
 	--feed=<keyname> [--feed=<keyname> ...]
 	 --out=<keyname>  [--out=<keyname> ...]
      --action=(parse|parse-out|upload)
-	[--username=<username> --password=<password>]
+	 --username=<username> --password=<password>
 	[--htuser=<username> --htpass=<password>]
 	[--url=http://my.karmasphere.com/app/account/feed/feed_data]
 
 Example:
   Upload an IP4 address feed:
     $0 --file=myfile.list --feed=my.feed --action=upload --username=my --password=secret
+
+  For the username and password, use what you use to sign in to the website.
 EOH
 	exit 1;
 }

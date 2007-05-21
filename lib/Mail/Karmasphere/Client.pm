@@ -40,7 +40,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.09";
+	$VERSION = "2.10";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -178,7 +178,7 @@ sub send {
 	$packet->{c} = $query->combiners if $query->has_combiners;
 	$packet->{fl} = $query->flags if $query->has_flags;
 	if (defined $self->{Principal}) {
-		my $creds = defined $self->{Credentials} ? $self->{Credentials} : '';
+		my $creds = defined $self->{Credentials} ?$self->{Credentials} : '';
 		$packet->{a} = [ $self->{Principal}, $creds ];
 	}
 	$self->{Debug}->('send_packet', $packet) if $self->{Debug};
@@ -291,32 +291,37 @@ Mail::Karmasphere::Client - Client for Karmasphere Reputation Server
 
 =head1 SYNOPSIS
 
-	use Mail::Karmasphere::Client qw(:all);
-
-	my $client = new Mail::Karmasphere::Client(
-			PeerAddr	=> '123.45.6.7',
-			PeerPort	=> 8666,
-				);
-
-	my $query = new Mail::Karmasphere::Query();
-	$query->identity('123.45.6.7', IDT_IP4);
-	$query->composite('karmasphere.email-sender');
-	my $response = $client->ask($query, 6);
-	print $response->as_string;
-
-	my $id = $client->send($query);
-	my $response = $client->recv($query, 12);
-	my $response = $client->recv($id, 12);
-
-	my $response = $client->query(
-		Identities	=> [ ... ]
-		Composite	=> 'karmasphere.email-sender',
-			);
+ use Mail::Karmasphere::Client qw(:all);
+ 
+ my $client = new Mail::Karmasphere::Client(
+    PeerAddr	=> 'query.karmasphere.com',
+    PeerPort	=> 8666,
+    Principal   => "my_assigned_query_username",
+    Credentials => "my_assigned_query_password",
+    # see http://my.karmasphere.com/devzone/client/configuration#credentials
+    # quickstart:  use temporary credentials for "generic perl".
+    # recommended: use permanent credentials -- register for an account.
+   );
+ 
+ my $query = new Mail::Karmasphere::Query();
+ $query->identity('127.0.0.2', IDT_IP4);
+ $query->composite('karmasphere.email-sender');
+ my $response = $client->ask($query, 6);
+ print $response->as_string;
+ 
+ my $id = $client->send($query);
+ my $response = $client->recv($query, 12);
+ my $response = $client->recv($id, 12);
+ 
+ my $response = $client->query(
+ 	Identities	=> [ ... ]
+ 	Composite	=> 'karmasphere.email-sender',
+ 		);
 
 =head1 DESCRIPTION
 
 The Perl Karma Client API consists of three objects: The Query, the
-Response and the Client. The user constructs a Query and passes it
+Response, and the Client. The user constructs a Query and passes it
 to a Client, which returns a Response.
 
 =head1 CONSTRUCTOR
@@ -343,15 +348,15 @@ Either 'udp' or 'tcp'. The default is 'udp' because it is faster.
 
 =item Principal
 
-An identifier used to authenticate client connections. This may be a
-login or account name. The precise details will depend on the policy
-of the query server being used.
-
 =item Credentials
 
-The credentials used to authenticate the principal. This may be a
-password, or a certificate. The precise details may depend on the
-policy of the query server being used.
+A username and password are required to authenticate client
+connections.  They are assigned by Karmasphere.  See
+http://my.karmasphere.com/devzone/client/configuration#credentials
+
+"Principal" corresponds to "username", and "Credentials"
+corresponds to "password".  Note that these are not the same
+username and password you use to sign in to the website.
 
 =item Debug
 
@@ -426,6 +431,7 @@ UDP retries are not yet implemented.
 L<Mail::Karmasphere::Query>,
 L<Mail::Karmasphere::Response>,
 http://www.karmasphere.com/,
+http://my.karmasphere.com/devzone/client/configuration,
 L<Mail::SpamAssassin::Plugin::Karmasphere>
 
 =head1 COPYRIGHT

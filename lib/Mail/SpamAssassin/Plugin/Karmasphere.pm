@@ -562,10 +562,13 @@ Mail::SpamAssassin::Plugin::Karmasphere - Query the Karmasphere reputation syste
 
 =head1 DESCRIPTION
 
-The Karmasphere reputation service is a real-time reputation service
-for identities. The aim of this plugin is to detect identities used
-by spammers and phishers, and thus detect zero-day spam runs and
-phishing scams.
+The Karmasphere reputation service is a real-time reputation
+service for Internet identities.  The aim of this plugin is
+to detect identities used by spammers and phishers, and thus
+detect zero-day spam runs and phishing scams.  Conversely, it
+can also detect identities used by reputable senders, and thus
+use a whitelisting strategy to bypass further antispam checking
+and (one hopes) reduce false positives.
 
 This plugin performs lookups against the Karmasphere reputation
 service. Two lookups are performed: One on the connect-time identities
@@ -621,22 +624,24 @@ The default is C<8666>.
 
 =item B<karma_timeout>
 
-The timeout for receiving karma responses, in seconds.
+The timeout for receiving Karmasphere responses, in seconds.
 The default is C<15>.
 
 =item B<karma_principal>
 
-An identifier used to authenticate client connections. This may be a
-login or account name. The precise details will depend on the policy
-of the query server being used.
-The default is C<undef>.
+An identifier used to authenticate queries from SpamAssassin
+to Karmasphere.  It is required (with one exception).  See 
+http://my.karmasphere.com/devzone/client/configuration#credentials
+
+That web page talks in terms of "username" and "password.
+
+Karma_principal corresponds to "username".
 
 =item B<karma_credentials>
 
-The credentials used to authenticate the principal. This may be a
-password, or a certificate. The precise details may depend on the
-policy of the query server being used.
-The default is C<undef>.
+See karma_principal, above.
+
+Karma_credentials corresponds to "password".
 
 =back
 
