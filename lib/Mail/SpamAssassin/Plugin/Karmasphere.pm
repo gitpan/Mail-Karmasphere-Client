@@ -727,6 +727,47 @@ should dig into the source code.
 Ensure that Authentication-Results headers are only honoured when
 not preceded by a Received line.
 
+=head1 INSTALLATION
+
+These instructions get the plugin working with SpamAssassin.
+
+After a successful CPAN install of
+Mail::Karmasphere::Client, you should find Karmasphere.pm
+present alongside your other SpamAssassin plugins.
+
+First, we need to
+
+	loadplugin Mail::SpamAssassin::Plugin::SPF
+
+Look in /etc/mail/spamassassin or /etc/spamassassin.
+
+If C<init.pre> exists, place the loadplugin line there.
+Otherwise, insert it at the top of C<local.cf>.
+
+Then add the following lines to the end of local.cf:
+
+ ifplugin Mail::SpamAssassin::Plugin::Karmasphere
+
+ karma_feedset connect karmasphere.email-sender
+ karma_feedset content karmasphere.email-body
+
+ karma_range KARMA_CONNECT_POSITIVE	connect  300   1000
+ karma_range KARMA_CONNECT_NEGATIVE	connect -1000 -300
+
+ karma_range KARMA_CONTENT_POSITIVE	content  300   1000
+ karma_range KARMA_CONTENT_NEGATIVE	content -1000 -300
+
+ score	KARMA_CONNECT_POSITIVE  -2.0
+ score	KARMA_CONNECT_NEGATIVE   2.0
+ score	KARMA_CONTENT_POSITIVE  -1.0
+ score	KARMA_CONTENT_NEGATIVE   1.0
+
+ add_header all Karma-Connect _KARMASCORE(connect)_: _KARMADATA(connect)_
+ add_header all Karma-Content _KARMASCORE(content)_: _KARMADATA(content)_
+
+ endif # Mail::SpamAssassin::Plugin::Karmasphere
+
+
 =head1 TODO
 
 Use the data fields from the Karma response to construct an

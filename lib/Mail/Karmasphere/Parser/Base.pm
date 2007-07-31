@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Mail::Karmasphere::Parser::Record;
+use Carp;
 
 sub new {
 	my $class = shift;
@@ -40,9 +41,12 @@ sub streams {
 
 sub parse {
 	my $self = shift;
-	return undef if $self->{Done};
-	RECORD: for (;;) {
-		my $record = $self->_parse;
+	return if $self->{Done};
+	RECORDS: for (;;) {
+		my @records = $self->_parse;
+		my @toreturn;
+	  RECORD:
+		for my $record (@records) {
 		last RECORD unless defined $record;
 		print Dumper($record) if $self->debug;
 		my $stream = $record->stream;
@@ -62,11 +66,21 @@ sub parse {
 			next RECORD;
 		}
 		else {
-			return $record;
+			push @toreturn, $record;
 		}
-	}
+	  }
+		if (wantarray) {
+			return @toreturn;
+		}
+		elsif (@toreturn <= 1) {
+			return $toreturn[0];
+		}
+		else {
+			croak("Parser has @{[scalar @toreturn]} records to return, but parse() was called in scalar context");
+		}
+	  }
 	$self->{Done} = 1;
-	return undef;
+	return;
 }
 
 sub debug { $ENV{DEBUG} }

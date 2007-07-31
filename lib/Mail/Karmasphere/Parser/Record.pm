@@ -96,17 +96,18 @@ sub _quote {
 #   1.2.3.4,-1000 (or some other number)
 #   1.2.3.4,1000,"because why"
 #
-# note that  1.2.3.4,1000  is optimized away to just  1.2.3.4
+# note that  1.2.3.4,1000  is NOT optimized away to just  1.2.3.4
+# we cannot assume that the feed is a whitelist
 # 
 sub as_string {
 	my $self = shift;
 	my $out = _quote($self->{i});
-	my $v1000 = defined $self->{v} ? 1000 : $self->{v};
-	my $v     = $self->{v} == 1000 ? undef : $self->{v};
 
-	$out .= "," . $v1000             if (defined $v or
+	$out .= "," . $self->{v}         if (defined $self->{v} or
 		 							     defined $self->{d});
 	$out .= "," . _quote($self->{d}) if (defined $self->{d});
+
+	# print STDERR "v = $self->{v} -> $out\n";
 
 	return $out;
 }

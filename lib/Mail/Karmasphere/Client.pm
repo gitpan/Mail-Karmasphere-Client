@@ -12,16 +12,16 @@ use Time::HiRes;
 use IO::Select;
 use Socket;
 use constant {
-	IDT_IP4_ADDRESS		=> 0,
-	IDT_IP6_ADDRESS		=> 1,
-	IDT_DOMAIN_NAME		=> 2,
-	IDT_EMAIL_ADDRESS	=> 3,
+	IDT_IP4_ADDRESS		=> "ip4",
+	IDT_IP6_ADDRESS		=> "ip6",
+	IDT_DOMAIN_NAME		=> "domain",
+	IDT_EMAIL_ADDRESS	=> "email",
 
-	IDT_IP4				=> 0,
-	IDT_IP6				=> 1,
-	IDT_DOMAIN			=> 2,
-	IDT_EMAIL			=> 3,
-	IDT_URL				=> 4,
+	IDT_IP4				=> "ip4",
+	IDT_IP6				=> "ip6",
+	IDT_DOMAIN			=> "domain",
+	IDT_EMAIL			=> "email",
+	IDT_URL				=> "url",
 };
 use constant {
 	AUTHENTIC					=> "a",
@@ -40,7 +40,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.10";
+	$VERSION = "2.11";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -152,6 +152,7 @@ sub _send_real {
 	if ($socket->protocol == PROTO_TCP) {
 		$self->{Debug}->('tcp prefix') if $self->{Debug};
 		$data = pack("N", length($data)) . $data;
+		$self->{Debug}->('send_real', $data) if $self->{Debug};
 	}
 	$socket->send($data)
 					or die "Failed to send to socket: $!";

@@ -138,7 +138,10 @@ sub identity {
 
 sub identities {
 	my $self = shift;
-	$self->{Identities} = [ @_ ] if @_;
+	if (@_) {
+		$self->{Identities} = [ ];
+		$self->identity($_) for @_;
+	}
 	return $self->{Identities};
 }
 

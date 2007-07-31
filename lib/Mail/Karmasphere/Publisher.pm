@@ -57,9 +57,12 @@ sub parse {
 					(0..$#$streams);
 	# print STDERR "files are " . Dumper(\@files);
 
-	while (my $record = $parser->parse) {
-		my $file = $files[$record->stream];
-		print $file $record->as_string, "\n";
+	while (my @records = $parser->parse) {
+		for my $record (@records) {
+			next if not defined $record;
+			my $file = $files[$record->stream];
+			print $file $record->as_string, "\n";
+		}
 	}
 
 	return 1;

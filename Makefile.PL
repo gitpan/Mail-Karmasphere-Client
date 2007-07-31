@@ -15,6 +15,39 @@ QUERIES
 	}
 }
 
+
+#my $sa_postamble = "# --- Mail::SpamAssassin is not installed; skipping init-ks.pre and local-ks.cf\n";
+#if (not require Mail::SpamAssassin) {
+#   print STDERR "Unable to require Mail::SpamAssassin::Plugin; concluding that SpamAsassin is not installed!\n";
+#}
+#else {
+#	my $sa = new Mail::SpamAssassin;
+#	my   $def_rules_dir = $sa->{  DEF_RULES_DIR};
+#	my $local_rules_dir = $sa->{LOCAL_RULES_DIR};
+#
+#	# we want to place
+#	# an init.pre file into /etc/mail/spamassassin
+#	# a 26_karmasphere.cf file into /usr/share/spamasssassin
+#
+#	# how do we figure out where those files are?
+#    # mengwong@newyears:~% perl -MMail::SpamAssassin -MYAML -le 'print Dump new Mail::SpamAssassin' | head -4
+#    # --- &1 !!perl/hash:Mail::SpamAssassin
+#    # DEF_RULES_DIR: /usr/local/share/spamassassin
+#    # LOCAL_RULES_DIR: /etc/mail/spamassassin
+#
+#	$sa_postamble = <<EOPOSTAMBLE; "# --- Mail::SpamAssassin is not installed; skipping init-ks.pre and local-ks.cf\n";
+#
+#$sa_postamble
+#conf__install:
+#	-$(MKPATH) $(B_CONFDIR)
+#	$(PERL) -MFile::Copy -e "copy(q{rules/local.cf}, q{$(B_CONFDIR)/local.cf}) unless -f q{$(B_CONFDIR)/local.cf}"
+#	$(PERL) -MFile::Copy -e "copy(q{rules/init.pre}, q{$(B_CONFDIR)/init.pre}) unless -f q{$(B_CONFDIR)/init.pre}"
+#	$(PERL) -MFile::Copy -e "copy(q{rules/v310.pre}, q{$(B_CONFDIR)/v310.pre}) unless -f q{$(B_CONFDIR)/v310.pre}"
+#
+#
+#}
+
+
 WriteMakefile(
     'NAME'		=> 'Mail::Karmasphere::Client',
     'VERSION_FROM'	=> 'lib/Mail/Karmasphere/Client.pm',

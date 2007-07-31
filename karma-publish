@@ -32,7 +32,7 @@ use Lingua::EN::Inflect qw(PL PL_N);
 my ($file, $format);
 my $URL = 'http://my.karmasphere.com/app/account/feed/feed_data';
 my ($url, $user, $pass, @feeds, @out, $htuser, $htpass);
-my $action = 'publish';
+my $action = 'upload';
 my ($debug);
 
 my $result = GetOptions(
@@ -159,7 +159,7 @@ foreach my $feed (@feeds) {
 	  print feed_prefix($feed, <$fh>);
   } elsif ($action eq 'parse-out') {
 	  print "$feed has been parsed to $filename\n";
-  } elsif ($action eq 'publish') {
+  } elsif ($action eq 'upload') {
     my %params = ( user => $user,
 				   pass => $pass,
 				   url  => ($url || $URL),
@@ -172,7 +172,7 @@ foreach my $feed (@feeds) {
     $params{htuser} = $htuser if defined $htuser;
     $params{htpass} = $htpass if defined $htpass;
 
-	my $response = $publisher->publish($fh->filename,
+	my $response = $publisher->publish($filename,
 									   $class,
 									   \%params,
 									  );
@@ -191,6 +191,13 @@ foreach my $feed (@feeds) {
 		$exitcode++;
 		if ($response->as_string =~ /There was an error/) {
 			print feed_prefix($feed, $response->as_string =~ /There was an error:.*?<pre>.*?{(.*?)}/s);
+		}
+		else {
+			if ($debug) {
+				print STDERR $response->as_string;
+			} else {
+				print STDERR "run again with --debug to see the full error dump\n";
+			}
 		}
 		# 
 		# There was an error:

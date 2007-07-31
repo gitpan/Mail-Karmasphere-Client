@@ -363,9 +363,10 @@ Then, connect to it:
 
 You should expect to see some STDERR from the karmad.
 
-If troubleshooting is necessary, try running karmaclient:
-that does in one step what karmad-plus-the-socket-call do in
-two.
+The C<karmac> script does pretty much the same thing.
+
+If troubleshooting is necessary, try running karmaclient: it
+talks to Karmasphere directly, without going through karmad.
 
 =head1 BUGS
 
