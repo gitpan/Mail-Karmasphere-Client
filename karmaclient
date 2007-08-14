@@ -8,10 +8,13 @@ use Mail::Karmasphere::Client qw(:all);
 # use Carp qw(cluck);
 # $SIG{__WARN__} = sub { cluck @_; };
 
+$Data::Dumper::Indent = 1;
+
 my ($username, $password);
 my ($host, $port, $tcp, $single, $debug, $version);
 my (@feeds, @composites, @combiners);
 my (@ip4, @ip6, @domain, @url, @email);
+my $flags = FL_FACTS;
 
 my $result = GetOptions(
 	"debug"			=> \$debug,
@@ -27,6 +30,7 @@ my $result = GetOptions(
 	"email=s"		=> \@email,
 	"username=s"	=> \$username,
 	"password=s"	=> \$password,
+	"flags=i"		=> \$flags,
 	"tcp"			=> \$tcp,
 	"single"		=> \$single,
 	"version"		=> \$version,
@@ -102,7 +106,7 @@ if ($single) {
 				Feeds		=> \@feeds,
 				Composites	=> \@composites,
 				Combiners	=> \@combiners,
-				Flags		=> FL_FACTS,
+				Flags		=> $flags,
 					);
 		my $response = $client->ask($query);
 		if ($response) {
@@ -119,7 +123,7 @@ else {
 			Feeds		=> \@feeds,
 			Composites	=> \@composites,
 			Combiners	=> \@combiners,
-			Flags		=> FL_FACTS,
+			Flags		=> $flags,
 				);
 	my $response = $client->ask($query);
 	if ($response) {

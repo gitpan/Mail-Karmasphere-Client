@@ -40,7 +40,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.11";
+	$VERSION = "2.12";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -386,7 +386,9 @@ should use send() and recv() individually. $timeout is optional.
 =item $id = $client->send($query)
 
 Sends a L<Mail::Karmasphere::Query> to the server, and returns the
-id of the query, which may be passed to recv().
+id of the query, which may be passed to recv().  Note that any query
+longer than 64KB will be rejected by the server with a message advising
+that the maximum message length has been exceeded.
 
 =item $response = $client->recv($id, $timeout)
 
@@ -422,6 +424,18 @@ A flag indicating that all facts must be returned explicitly in the
 Response.
 
 =back
+
+=head1 NOTES ON THE IMPLEMENTATION
+
+The server will discard any packet in TCP mode which exceeds
+64K. Although the packet length field is 4 bytes, it is relatively
+common to get non-Karmasphere clients connecting to the port.
+Therefore the server checks that the top two bytes are \0 before
+accepting the packet. This saves everybody a headache.
+
+Some flags, notably those which generate large response packets,
+are totally ignored for UDP queries, even in the case that they would
+not generate a large response. This also saves many headaches.
 
 =head1 BUGS
 

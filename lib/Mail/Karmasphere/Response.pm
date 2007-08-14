@@ -18,11 +18,21 @@ sub id {
 
 sub time {
 	my $self = shift;
+	return $self->{t} if defined $self->{t};
 	return $self->{'time'} if defined $self->{'time'};
 	return '???';
 }
 
+# deprecated
 sub facts {
+	my $self = shift;
+	return $self->{f} if exists $self->{f};
+	return $self->{facts} if exists $self->{facts};
+	$self->{f} = [];
+	return $self->{f};
+}
+
+sub attributes {
 	my $self = shift;
 	return $self->{f} if exists $self->{f};
 	return $self->{facts} if exists $self->{facts};
@@ -92,7 +102,7 @@ sub as_string {
 	$out = $out . $self->time . "ms, ";
 	my @names = $self->combiner_names;
 	$out = $out . scalar(@names) . " combinations, ";
-	$out = $out . scalar(@{ $self->facts }) . " facts\n";
+	$out = $out . scalar(@{ $self->facts }) . " attributes\n";
 	if ($self->error) {
 		$out .= "Error: " . $self->message . "\n";
 	}
@@ -103,15 +113,16 @@ sub as_string {
 		foreach (@names) {
 			my $value = $self->value($_);
 			my $data = $self->data($_);
+			$value = 0 unless defined $value;	# Might happen
 			$data = '(undef)' unless defined $data;
 			$out .= "Combiner '$_': verdict $value ($data)\n";
 		}
 		foreach (@{$self->facts}) {
 			my $d = $_->{d};
 			$d = "null data" unless defined $d;
-			$out .= "Feed '$_->{f}':";
+			$out .= "Attribute '$_->{f}':";
 			$out .= " identity '$_->{i}'" if exists $_->{i};
-			$out .= " opinion $_->{v} ($d)\n";
+			$out .= " value $_->{v} ($d)\n";
 		}
 	}
 	return $out;
