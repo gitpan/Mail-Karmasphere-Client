@@ -28,8 +28,15 @@ use_ok('Mail::SpamAssassin::Conf');
 use_ok('Mail::SpamAssassin::PerMsgStatus');
 use_ok('Mail::SpamAssassin::Plugin::Karmasphere');
 
-my $config_text = <<'EOR';
+my $check_plugin = '';
+eval {
+	require Mail::SpamAssassin::Plugin::Check;
+	$check_plugin = 'loadplugin Mail::SpamAssassin::Plugin::Check';
+};
 
+my $config_text = <<"EOR";
+
+$check_plugin
 loadplugin Mail::SpamAssassin::Plugin::Karmasphere
 
 karma_principal		public
