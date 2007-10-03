@@ -32,6 +32,8 @@ use constant {
 	SMTP_HEADER_FROM_ADDRESS	=> "smtp.header.from.address",
 
 	FL_FACTS		=> 1,
+	FL_DATA			=> 2,
+	FL_TRACE		=> 4,
 };
 use constant {
 	PROTO_TCP		=> 0+getprotobyname('tcp'),
@@ -40,7 +42,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.13";
+	$VERSION = "2.14";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
