@@ -15,7 +15,9 @@ sub tweaks {
  
     # we assume it's a url identity.
 
-    return ("ip4", 0, $_[0]);
+	my ($firstword) = split(' ', $_[0], 2);
+
+    return ("ip4", 0, $firstword);
 }
 
 1;

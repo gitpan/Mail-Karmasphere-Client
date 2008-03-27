@@ -114,7 +114,7 @@ sub id {
 		$self->{Id} = shift;
 	}
 	elsif (!defined $self->{Id}) {
-		$self->{Id} = 'mkc' . $ID++;
+		$self->{Id} = 'mkc' . $ID++ . "-" . time();
 	}
 	return $self->{Id};
 }
@@ -263,6 +263,12 @@ sub has_flags {
 	return undef unless exists $self->{Flags};
 	return undef unless defined $self->{Flags};
 	return 1;
+}
+
+sub identities_as_humanreadable_string {
+	my $self = shift;
+	my @identities = @{ $self->{Identities} || [] };
+	return join ",", (map { join "=", ($_->[1], $_->[0], ($_->[2] || ())) } @identities);
 }
 
 sub _as_string_sizeof {

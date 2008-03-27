@@ -60,6 +60,7 @@ WriteMakefile(
 				'LWP'				=> 0,
 				'HTTP::Request'		=> 0,
 				'YAML'				=> 0,
+				'Lingua::EN::Inflect' => 0,
 			},
 	ABSTRACT_FROM => 'lib/Mail/Karmasphere/Client.pm',
 	AUTHOR		=> 'Shevek <cpan@anarres.org>',

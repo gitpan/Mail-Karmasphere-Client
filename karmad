@@ -18,14 +18,14 @@ usage: karmad
              [--socket=/tmp/karmad]
              [--server=query.karmasphere.com]
              [--feedset=karmasphere.email-sender]
-			 [--mta=postfix|EXIM]
-			 [--action=PREPEND|reject]
+             [--mta=postfix|EXIM]
+             [--action=PREPEND|reject]
 EOUSAGE
 }
 
 my $help;
 my ($server, $user, $group, $port, $path, $login, $pass);
-my ($mta, $action);
+my ($mta, $action, $verbose_header);
 my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -41,9 +41,11 @@ my $result = GetOptions(
 	"user=s"		=> \$user,
 	"group=s"		=> \$group,
 	"username=s"	=> \$login,
-	"password=s",	=> \$pass,
-	"mta=s",		=> \$mta,
-	"action=s",		=> \$action,
+	"password=s"	=> \$pass,
+	"mta=s"			=> \$mta,
+	"action=s"		=> \$action,
+	"verbose-header" => \$verbose_header,
+	"verbose-headers" => \$verbose_header,
 );
 
 $mta ||= "exim";
@@ -153,7 +155,6 @@ elsif ($user or $group) {
 	warn "Cannot change to $user:$group not root.";
 }
 
-
 while (my $socket = $listen->accept()) {
 	if (fork) {
 		close $socket;
@@ -184,21 +185,20 @@ while (my $socket = $listen->accept()) {
 		print STDERR "$key = $in{$key}\n" if -t STDERR;
 	}
 
+	my $query_id = join('-', 'karmad', time(), ($in{queue_id} || ()));
+
 	my $query = new Mail::Karmasphere::Query(
 		Composite	=> $composite,
+		Id => $query_id,
 	);
 
-	$query->identity($in{client_address}, IDT_IP4_ADDRESS, "smtp.client-ip")
-			if exists $in{client_address};
-	$query->identity($in{helo_name}, IDT_DOMAIN_NAME, "smtp.env.helo")
-			if exists $in{helo_name};
-	$query->identity($in{sender}, IDT_EMAIL_ADDRESS, "smtp.env.mail-from")
-			if exists $in{sender};
+	$query->identity($in{ip}, 					IDT_IP4_ADDRESS, "smtp.client-ip")				if exists $in{ip}; # backward compatibility
+	$query->identity($in{helo}, 				IDT_DOMAIN_NAME, "smtp.env.helo")				if exists $in{helo}; # backward compatibility
+	$query->identity($in{client_address}, 		IDT_IP4_ADDRESS, "smtp.client-ip")				if exists $in{client_address};
+	$query->identity($in{helo_name}, 			IDT_DOMAIN_NAME, "smtp.env.helo")				if exists $in{helo_name};
+	$query->identity($in{sender}, 				IDT_EMAIL_ADDRESS, "smtp.env.mail-from")		if exists $in{sender};
 	# Postfix only. Hope these are useful.
-	$query->identity($in{client_name}, IDT_DOMAIN_NAME, "a")
-			if exists $in{client_name};
-#	$query->identity($in{reverse_client_name}, IDT_DOMAIN_NAME, "a")
-#			if exists $in{reverse_client_name};
+	$query->identity($in{client_name}, 			IDT_DOMAIN_NAME, "a")							if exists $in{client_name};
 
 	my ($shost, $sport) = split(/:/, $server) if $server;
 	my %mkcargs = (
@@ -215,6 +215,7 @@ while (my $socket = $listen->accept()) {
 	respond(response  => $response,
 			socket    => $socket,
 			composite => $composite,
+			query     => $query,
 			);
 
 	close $socket;
@@ -279,7 +280,7 @@ sub respond_generic {
 
 sub respond_postfix {
 	my %param     = @_;
-	my ($response, $socket, $composite) = @param{qw(response socket composite)};
+	my ($response, $socket, $composite, $query) = @param{qw(response socket composite query)};
 
 	if (not $response) {
 		# In case of trouble the policy server must not send
@@ -309,13 +310,28 @@ sub respond_postfix {
 				   $value < -300 ? "fail" :
 				                   "neutral");
 
+	my @prepend_string = ("prepend",
+						  "X-Karma",
+						  "verdict=$verdict",
+						  "score=$value",
+						  "comment=$data");
+
+	if ($verbose_header) {
+		splice(@prepend_string, -1, 0,
+			   "identities=" . $query->identities_as_humanreadable_string,
+			   "query_id=" . $query->id,
+			   );
+	}
+
+	my $prepend_string = join (" ", @prepend_string) . "\n";
+
 	if ($action eq "prepend")   {
-		print $socket "prepend X-Karma verdict=$verdict score=$value comment=$data\n";
+		print $socket $prepend_string;
 	}
 	elsif ($action eq "reject") {
 		if ($verdict eq "pass") { print $socket "permit\n"; }
 		if ($verdict eq "fail") { print $socket "reject karma scored too low: $value ($data)\n"; }
-		else                    { print $socket "prepend X-Karma verdict=$verdict score=$value comment=$data\n"; }
+		else                    { print $socket $prepend_string; }
 	}
 	print $socket "\n";
 }
@@ -340,23 +356,43 @@ of the source distribution for more information.
 
 =item --mta
 
+Optional.
+
 If you're running postfix, set --mta=postfix and karmad will
 behave as an SMTPD policy daemon.
 
 If you're running exim, set --mta=exim and use the exim ACL
 provided with Mail::Karmasphere::Client.
 
+If not specified, defaults to C<exim>.
+
 =item --action
 
+Optional.
+
 If you're running postfix, you can set --action to one of
-C<prepend> (default) or C<reject>).  Prepend will prepend an
+C<prepend> (default) or C<reject>.  Prepend will prepend an
 X-Karma header.  Reject will cause any mail with a karma
 score below -300 to be rejected.  Use this only if you are
 happy with the results you've observed.
 
+If not specified, defaults to C<prepend>.
+
+=item --verbose-header
+
+Optional.
+
+If you've set C<action> to C<prepend>, this flag will add
+two fields to the X-Karma header: C<identities> shows what
+was queried, and C<query_id> includes the timestamp and (if
+available) the MTA's queue ID.)  This is useful for
+debugging purposes: it allows one to replay the query.
+
 =item --username
 
 =item --password
+
+Optional.
 
 Query credentials for authenticated queries.  You only need
 to set this if you're querying a restricted feedset.  For
@@ -440,23 +476,25 @@ usually, something like
 
 =head1 HOW TO TEST THAT IT'S WORKING
 
-First, run karmad:
+This section assumes you're running Postfix.
 
- % ./karmad --username=foo --password=bar
+ % ./karmad --mta=postfix --action=prepend --verbose-header
 
 Then, connect to it:
 
- % perl -MIO::Socket::UNIX -le 'my $sock = IO::Socket::UNIX->new("/tmp/karmad"); print $sock "ip=127.0.0.2\n"; print <$sock>;'
- value=-1000
- opinion=bad
- data=some.feedname: if-bad(0) => return-bad(1.0)
+ % perl -MIO::Socket::UNIX -le 'my $sock = IO::Socket::UNIX->new("/tmp/karmad"); print $sock "client_address=127.0.0.2\n\n"; print <$sock>;'
+
+You should get back something along the lines of:
+
+ prepend X-Karma verdict=fail score=-1000 identities=ip4=127.0.0.2=smtp.client-ip query_id=karmad-1206640966 comment=cymru.bogons: if-match(0) => return-bad(1.0)
 
 You should expect to see some STDERR from the karmad.
 
 The C<karmac> script does pretty much the same thing.
 
-If troubleshooting is necessary, try running karmaclient: it
-talks to Karmasphere directly, without going through karmad.
+If troubleshooting is necessary, use karmaclient to talk to
+Karmasphere directly, without going through karmad.  Then
+use karmac to talk to karmad.
 
 =head1 BUGS
 
