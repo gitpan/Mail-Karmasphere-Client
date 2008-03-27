@@ -1,9 +1,10 @@
 karma_rcpt_acl:
 
     # Check envelope sender
+	# This is really intended to emulate Postfix's protocol.
 
     warn     set acl_m9  = ${readsocket{/tmp/karmad}\
-                           {ip=$sender_host_address\nhelo=$sender_helo_name\
+                           {client_address=$sender_host_address\nhelo_name=$sender_helo_name\
                            \nsender=$sender_address\n\n}{20s}{\n}{socket failure}} 
 
     # Continue quietly on socket error

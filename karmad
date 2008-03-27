@@ -13,15 +13,19 @@ $PORT_DEFAULT = 8555;
 
 sub usage {
 	print STDERR <<EOUSAGE;
-usage: karmad --username=foo --password=bar
+usage: karmad
+             [--username=foo --password=bar]
              [--socket=/tmp/karmad]
              [--server=query.karmasphere.com]
              [--feedset=karmasphere.email-sender]
+			 [--mta=postfix|EXIM]
+			 [--action=PREPEND|reject]
 EOUSAGE
 }
 
 my $help;
 my ($server, $user, $group, $port, $path, $login, $pass);
+my ($mta, $action);
 my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -38,7 +42,11 @@ my $result = GetOptions(
 	"group=s"		=> \$group,
 	"username=s"	=> \$login,
 	"password=s",	=> \$pass,
+	"mta=s",		=> \$mta,
+	"action=s",		=> \$action,
 );
+
+$mta ||= "exim";
 
 if (!$result or $help) {
 	usage();
@@ -167,7 +175,7 @@ while (my $socket = $listen->accept()) {
 		chomp;
 		chomp;
 		last if /^$/;
-		my ($lhs, $rhs) = split(/=/, $_, 2);
+		my ($lhs, $rhs) = split(/\s*=\s*/, $_, 2);
 		$in{lc $lhs} = $rhs;
 	}
 
@@ -180,12 +188,17 @@ while (my $socket = $listen->accept()) {
 		Composite	=> $composite,
 	);
 
-	$query->identity($in{ip}, IDT_IP4_ADDRESS, "smtp.client-ip")
-			if exists $in{ip};
-	$query->identity($in{helo}, IDT_DOMAIN_NAME, "smtp.env.helo")
-			if exists $in{helo};
+	$query->identity($in{client_address}, IDT_IP4_ADDRESS, "smtp.client-ip")
+			if exists $in{client_address};
+	$query->identity($in{helo_name}, IDT_DOMAIN_NAME, "smtp.env.helo")
+			if exists $in{helo_name};
 	$query->identity($in{sender}, IDT_EMAIL_ADDRESS, "smtp.env.mail-from")
 			if exists $in{sender};
+	# Postfix only. Hope these are useful.
+	$query->identity($in{client_name}, IDT_DOMAIN_NAME, "a")
+			if exists $in{client_name};
+#	$query->identity($in{reverse_client_name}, IDT_DOMAIN_NAME, "a")
+#			if exists $in{reverse_client_name};
 
 	my ($shost, $sport) = split(/:/, $server) if $server;
 	my %mkcargs = (
@@ -196,43 +209,115 @@ while (my $socket = $listen->accept()) {
 	);
 	my $client = new Mail::Karmasphere::Client(%mkcargs);
 
+	print STDERR "sending query \"@{[$query->as_string]}\"\n" if -t STDERR;
 	my $response = $client->ask($query);
+
+	respond(response  => $response,
+			socket    => $socket,
+			composite => $composite,
+			);
+
+	close $socket;
+
+	exit;
+}
+
+### 
+### --------------------------------------------------------- respond dispatcher
+### 
+
+sub respond {
+	my %param     = @_;
+	my ($response, $socket, $composite) = @param{qw(response socket composite)};
+
+	if ($mta eq "postfix") { respond_postfix(@_); }
+	else                   { respond_generic(@_); }
+}
+
+### 
+### --------------------------------------------------------- MTA = exim or other
+### 
+
+sub respond_generic {
+	my %param     = @_;
+	my ($response, $socket, $composite) = @param{qw(response socket composite)};
 
 	if ($response) {
 		print STDERR $response->as_string if -t STDERR;
-
 		if ($response->error) {
 			print $socket "error=" . $response->message . "\n";
 		}
 		else {
-
-		my $value = $response->value($composite);
-		$value = 0 unless defined $value;
-		print $socket "value=", $value, "\n";
-		if ($value > 300) {
-			print $socket "opinion=good\n";
+			my $value = $response->value($composite);
+			$value = 0 unless defined $value;
+			print $socket "value=", $value, "\n";
+			if ($value > 300) {
+				print $socket "opinion=good\n";
+			}
+			elsif ($value < -300) {
+				print $socket "opinion=bad\n";
+			}
+			else {
+				print $socket "opinion=neutral\n";
+			}
+			my $data = $response->data($composite);
+			$data = '(null data)' unless defined $data;
+			print $socket "data=", $data, "\n";
 		}
-		elsif ($value < -300) {
-			print $socket "opinion=bad\n";
-		}
-		else {
-			print $socket "opinion=neutral\n";
-		}
-		my $data = $response->data($composite);
-		$data = '(null data)' unless defined $data;
-		print $socket "data=", $data, "\n";
-	}
 	}
 	else {
 		print STDERR "timeout\n" if -t STDERR;
 		print $socket "error=timeout\n";
 	}
-
 	print STDERR "\n" if -t STDERR;
 	print $socket "\n";
-	close $socket;
+}
 
-	exit;
+### 
+### --------------------------------------------------------- MTA = postfix
+### 
+
+sub respond_postfix {
+	my %param     = @_;
+	my ($response, $socket, $composite) = @param{qw(response socket composite)};
+
+	if (not $response) {
+		# In case of trouble the policy server must not send
+		# a reply. Instead the server must log a warning and
+		# disconnect. Postfix will retry the request at some
+		# later time.
+		# -- http://www.postfix.org/SMTPD_POLICY_README.html
+
+		print STDERR "timeout\n" if -t STDERR;
+		return;
+	}
+
+	print STDERR $response->as_string if -t STDERR;
+
+	if ($response->error) {
+		return;
+		# print $socket "error=" . $response->message . "\n";
+	}
+
+	my $data = $response->data($composite) || '(no comment)';
+
+	my $action = $action || "prepend";
+
+	my $value = $response->value($composite);
+	$value = 0 unless defined $value;
+	my $verdict = ($value > 300  ? "pass" :
+				   $value < -300 ? "fail" :
+				                   "neutral");
+
+	if ($action eq "prepend")   {
+		print $socket "prepend X-Karma verdict=$verdict score=$value comment=$data\n";
+	}
+	elsif ($action eq "reject") {
+		if ($verdict eq "pass") { print $socket "permit\n"; }
+		if ($verdict eq "fail") { print $socket "reject karma scored too low: $value ($data)\n"; }
+		else                    { print $socket "prepend X-Karma verdict=$verdict score=$value comment=$data\n"; }
+	}
+	print $socket "\n";
 }
 
 __END__
@@ -253,25 +338,30 @@ of the source distribution for more information.
 
 =over 12
 
+=item --mta
+
+If you're running postfix, set --mta=postfix and karmad will
+behave as an SMTPD policy daemon.
+
+If you're running exim, set --mta=exim and use the exim ACL
+provided with Mail::Karmasphere::Client.
+
+=item --action
+
+If you're running postfix, you can set --action to one of
+C<prepend> (default) or C<reject>).  Prepend will prepend an
+X-Karma header.  Reject will cause any mail with a karma
+score below -300 to be rejected.  Use this only if you are
+happy with the results you've observed.
+
 =item --username
 
 =item --password
 
-Query credentials for authenticated queries.  You probably
-need to set this.
-
-These parameters are mandatory unless you are relying on IP
-authentication.  For more information, see
+Query credentials for authenticated queries.  You only need
+to set this if you're querying a restricted feedset.  For
+more information, see
 L<http://www.karmasphere.com/devzone/client/configuration#credentials>
-
-If you have registered for a Karmasphere account, you should
-use the permanent credentials that have been assigned.  See
-L<http://www.karmasphere.com/app/account/auth#query_credentials>
-
-If you have not registered for a Karmasphere account, you
-can use temporary credentials, but those credentials will
-expire after a few weeks.  See the URL above and choose the
-username and password for either "exim" or "postfix".
 
 =item --socket
 
@@ -318,8 +408,8 @@ When running, setuid to this user and group.  Defaults to
 Connect to the socket (default: /tmp/karmad) and send the
 following newline-terminated stanza:
 
- ip=192.0.2.1
- helo=host.example.com
+ client_address=192.0.2.1
+ helo_name=host.example.com
  sender=localpart@example.com
 
 Each of the above lines is optional; you may omit whatever is unavailable.
@@ -379,6 +469,7 @@ L<Mail::Karmasphere::Query>
 L<Mail::Karmasphere::Response>
 L<karmaclient>
 http://www.karmasphere.com/
+http://www.postfix.org/SMTPD_POLICY_README.html
 
 =head1 COPYRIGHT
 

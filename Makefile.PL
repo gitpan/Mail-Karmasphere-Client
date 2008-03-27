@@ -10,7 +10,7 @@ karma-publish|y|Karmasphere feed publisher command
 QUERIES
 	my ($program, $default, $description) = split /\|/, $_;
 	if (prompt("Do you want to install '$program', the $description?", 
-			   $default) =~ /^y/) {
+				$default) =~ /^y/) {
 		push(@programs, $program);
 	}
 }
@@ -49,20 +49,20 @@ QUERIES
 
 
 WriteMakefile(
-    'NAME'		=> 'Mail::Karmasphere::Client',
-    'VERSION_FROM'	=> 'lib/Mail/Karmasphere/Client.pm',
-    'PREREQ_PM'		=> {
+	'NAME'		=> 'Mail::Karmasphere::Client',
+	'VERSION_FROM'	=> 'lib/Mail/Karmasphere/Client.pm',
+	'PREREQ_PM'		=> {
 				'Convert::Bencode'	=> 0,
 				'IO::Socket'		=> 0,
 				'IO::Select'		=> 0,
 				'Time::HiRes'		=> 0,
-				'Text::CSV'		=> 0,
-				'LWP'			=> 0,
+				'Text::CSV'			=> 0,
+				'LWP'				=> 0,
 				'HTTP::Request'		=> 0,
 				'YAML'				=> 0,
 			},
 	ABSTRACT_FROM => 'lib/Mail/Karmasphere/Client.pm',
-	AUTHOR     => 'Shevek <cpan@anarres.org>',
+	AUTHOR		=> 'Shevek <cpan@anarres.org>',
 	EXE_FILES	=> \@programs,
 );
 

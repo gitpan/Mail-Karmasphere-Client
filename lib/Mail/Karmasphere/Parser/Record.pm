@@ -56,7 +56,7 @@ sub guess_identity_type {
 	elsif ($identity =~ /@/) {
 		return 'email';
 	}
-	elsif ($identity =~ /\.[a-z]{2,4}$/) {
+	elsif ($identity =~ /\.[a-z]{2,4}\.?$/) {
 		return 'domain';
 	}
 

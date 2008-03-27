@@ -25,7 +25,7 @@ sub _parse {
 		return undef unless $line;
 		next if $line =~ /^#/;
 		next unless $line =~ /\S/;
-		chomp($line);
+		chomp($line); $line =~ s/\r$//g; # strip trailing CRLF
 		$line =~ s/[\s;].+$//;
 		return new Mail::Karmasphere::Parser::Record(
 			s	=> 0,

@@ -133,6 +133,16 @@ sub identity {
 		$identity = [ $identity, $type ];
 	}
 	push(@$identity, @tags) if @tags;
+	for (@{ $self->{Identities} }) {
+		# If the data and the type match
+		if (($_->[0] eq $identity->[0]) &&
+				($_->[1] eq $identity->[1])) {
+			# Combine the tags from the new identity;
+			shift @$identity; shift @$identity;
+			push(@{ $_ }, @$identity);
+			return;
+		}
+	}
 	push(@{ $self->{Identities} }, $identity);
 }
 

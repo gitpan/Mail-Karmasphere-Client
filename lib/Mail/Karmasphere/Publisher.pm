@@ -1,6 +1,7 @@
 package Mail::Karmasphere::Publisher;
 
 use strict;
+use Carp qw(cluck);
 use warnings;
 use vars qw(@ISA @EXPORT_OK %EXPORT_TAGS);
 
@@ -40,6 +41,8 @@ sub _output_file {
 }
 
 # Do not fuck with this method, Karma-Syndicator calls it.
+# we output to a temporary file and write to it.
+# once we're done writing to it, we rename the temp file to the real filename.
 sub parse {
 	my ($self, $input, $class, $outputs, %args) = @_;
 
@@ -53,16 +56,29 @@ sub parse {
 	$outputs ||= [];	# An array of filenames.
 
 	# print STDERR "outputs are " . Dumper($outputs);
-	my @files = map { _output_file($input, $outputs->[$_], $_) }
-					(0..$#$streams);
-	# print STDERR "files are " . Dumper(\@files);
+	my @files = map { _output_file($outputs->[$_], undef, $_) } (0..$#$streams);
+	# print STDERR ">>> parse temp files are " . Dumper(\@files);
 
+	for my $i (0..$#$streams) {
+	    if (not $outputs->[$i]) {
+		cluck ("parser $parser for input $input defines stream $i, but there is no corresponding output filename!");
+	    }
+	}
+	
+	# this is a ridiculously slow inner loop.  can we optimize?
 	while (my @records = $parser->parse) {
 		for my $record (@records) {
 			next if not defined $record;
 			my $file = $files[$record->stream];
 			print $file $record->as_string, "\n";
 		}
+	}
+
+	foreach my $i (0 .. $#$streams) {
+	    my $fh = $files[$i];
+	    print STDERR " >> stream $i: renaming " . $fh->filename() . " to " . $outputs->[$i] . "\n";
+	    rename($fh->filename, $outputs->[$i]);
+	    chmod 0644, $outputs->[$i];
 	}
 
 	return 1;

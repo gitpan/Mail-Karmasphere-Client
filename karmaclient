@@ -48,7 +48,7 @@ Usage: $0
     [--ip4=<ip4_addr>[=tag] ...] [--ip6=<ip6_addr>[=tag] ...]
     [--domain=<domain_name>[=tag] ...]
 	[--url=<url>[=tag] ...] [--email=<email_addr>[=tag] ...]
-	[--version]
+	[--flags=<flags> ] [--version]
 
 Example:
   Query for an IP4 address and a domain in one packet:
@@ -77,8 +77,10 @@ my %ids = (
 
 for my $type (keys %ids) {
 	for my $id (@{ $ids{$type} }) {
-	    if ($id =~ /^(.*)=([a-z\.-]+)$/) {
-			push(@ids, [ $1, $type, $2 ]);
+	    if ($id =~ /^(.*)=([a-z,\.-]+)$/) {
+			my $tags = $2;
+			my @tags = split /,/, $tags;
+			push(@ids, [ $1, $type, @tags ]);
 		}
 		else {
 			push(@ids, [ $id, $type ]);
@@ -128,6 +130,11 @@ else {
 	my $response = $client->ask($query);
 	if ($response) {
 		print $response->as_string();
+
+		for ($response->combiner_names) {
+			if ($flags & FL_TRACE)      { print $response->{$_ . ".trace"},      "\n"; }
+			if ($flags & FL_MODELTRACE) { print $response->{$_ . ".modeltrace"}, "\n"; }
+		}
 	}
 	else {
 		print "Timeout or error\n";

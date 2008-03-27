@@ -101,7 +101,7 @@ sub as_string {
 	my $out = "Response id '" . $self->id . "': ";
 	$out = $out . $self->time . "ms, ";
 	my @names = $self->combiner_names;
-	$out = $out . scalar(@names) . " combinations, ";
+	$out = $out . scalar(@names) . " verdicts, ";
 	$out = $out . scalar(@{ $self->facts }) . " attributes\n";
 	if ($self->error) {
 		$out .= "Error: " . $self->message . "\n";
@@ -110,14 +110,15 @@ sub as_string {
 		if ($self->message) {
 			$out .= "Warning: " . $self->message . "\n";
 		}
-		foreach (@names) {
+		foreach (sort @names) {
 			my $value = $self->value($_);
 			my $data = $self->data($_);
 			$value = 0 unless defined $value;	# Might happen
 			$data = '(undef)' unless defined $data;
 			$out .= "Combiner '$_': verdict $value ($data)\n";
 		}
-		foreach (@{$self->facts}) {
+		my @facts = sort { $a->{f} cmp $b->{f} } @{$self->facts};
+		foreach (@facts) {
 			my $d = $_->{d};
 			$d = "null data" unless defined $d;
 			$out .= "Attribute '$_->{f}':";

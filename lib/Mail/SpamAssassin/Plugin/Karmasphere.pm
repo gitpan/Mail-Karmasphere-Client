@@ -629,8 +629,9 @@ The default is C<15>.
 
 =item B<karma_principal>
 
-An identifier used to authenticate queries from SpamAssassin
-to Karmasphere.  It is required (with one exception).  See 
+An identifier may be used to authenticate queries from
+SpamAssassin to Karmasphere.  It is not required for most
+cases.  See
 http://my.karmasphere.com/devzone/client/configuration#credentials
 
 That web page talks in terms of "username" and "password.

@@ -34,6 +34,7 @@ use constant {
 	FL_FACTS		=> 1,
 	FL_DATA			=> 2,
 	FL_TRACE		=> 4,
+	FL_MODELTRACE	=> 8,
 };
 use constant {
 	PROTO_TCP		=> 0+getprotobyname('tcp'),
@@ -42,7 +43,7 @@ use constant {
 
 BEGIN {
 	@ISA = qw(Exporter);
-	$VERSION = "2.14";
+	$VERSION = "2.15";
 	@EXPORT_OK = qw(
 					IDT_IP4_ADDRESS IDT_IP6_ADDRESS
 					IDT_DOMAIN_NAME IDT_EMAIL_ADDRESS
@@ -57,6 +58,9 @@ BEGIN {
 					SMTP_HEADER_FROM_ADDRESS
 
 					FL_FACTS
+					FL_DATA
+					FL_TRACE
+					FL_MODELTRACE
 				);
 	%EXPORT_TAGS = (
 		'all' => \@EXPORT_OK,

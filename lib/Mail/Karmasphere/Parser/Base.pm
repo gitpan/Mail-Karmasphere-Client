@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Mail::Karmasphere::Parser::Record;
-use Carp;
+use Carp qw(confess);
 
 sub new {
 	my $class = shift;
@@ -42,33 +42,37 @@ sub streams {
 sub parse {
 	my $self = shift;
 	return if $self->{Done};
-	RECORDS: for (;;) {
+  RECORDS:
+	for (;;) {
+#		print STDERR "> > parsing...\n";
 		my @records = $self->_parse;
 		my @toreturn;
 	  RECORD:
 		for my $record (@records) {
-		last RECORD unless defined $record;
-		print Dumper($record) if $self->debug;
-		my $stream = $record->stream;
-		my $type = $self->{Streams}->[$stream];
+#			print STDERR "  > record: $record\n";
+			last RECORD unless defined $record;
+			print Dumper($record) if $self->debug;
+			my $stream = $record->stream;
+			my $type = $self->{Streams}->[$stream];
 
-		if (!defined $type) {
-			$self->warning("Ignoring record: " .
-							"Invalid stream: " .
-							$stream);
-			next RECORD;
+			if (!defined $type) {
+				$self->warning("Ignoring record: " .
+							   "Invalid stream: " .
+							   $stream);
+				next RECORDS;
+			}
+			elsif ($type ne $record->type) {
+				$self->warning("Ignoring record: " .
+							   "Stream type mismatch: " .
+							   "Expected $type, got " . $record->type .
+							   ": " . $record->as_string);
+				next RECORDS;
+			}
+			else {
+				push @toreturn, $record;
+			}
 		}
-		elsif ($type ne $record->type) {
-			$self->warning("Ignoring record: " .
-							"Stream type mismatch: " .
-							"Expected $type, got " . $record->type .
-							": " . $record->as_string);
-			next RECORD;
-		}
-		else {
-			push @toreturn, $record;
-		}
-	  }
+
 		if (wantarray) {
 			return @toreturn;
 		}
@@ -78,7 +82,7 @@ sub parse {
 		else {
 			croak("Parser has @{[scalar @toreturn]} records to return, but parse() was called in scalar context");
 		}
-	  }
+	}
 	$self->{Done} = 1;
 	return;
 }
