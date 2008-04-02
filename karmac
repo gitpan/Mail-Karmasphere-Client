@@ -12,9 +12,10 @@ my $sock = new IO::Socket::UNIX(
 		)
 	or die "Failed to create socket: $!";
 print $sock <<"EOQ";
-ip=127.0.0.2
+client_address=127.0.0.2
 sender=fred\@nowhere.net
 helo=nowhere.net
+queue_id=$$
 
 EOQ
 while (<$sock>) {

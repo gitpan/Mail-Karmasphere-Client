@@ -25,7 +25,7 @@ EOUSAGE
 
 my $help;
 my ($server, $user, $group, $port, $path, $login, $pass);
-my ($mta, $action, $verbose_header);
+my ($mta, $action, $verbose_header, $cutoff_fail, $cutoff_pass);
 my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -46,9 +46,13 @@ my $result = GetOptions(
 	"action=s"		=> \$action,
 	"verbose-header" => \$verbose_header,
 	"verbose-headers" => \$verbose_header,
+	"cutoff-fail=i"   => \$cutoff_fail,
+	"cutoff-pass=i"   => \$cutoff_pass,
 );
 
 $mta ||= "exim";
+$cutoff_pass = +300 if not defined $cutoff_pass;
+$cutoff_fail = -300 if not defined $cutoff_fail;
 
 if (!$result or $help) {
 	usage();
@@ -252,10 +256,10 @@ sub respond_generic {
 			my $value = $response->value($composite);
 			$value = 0 unless defined $value;
 			print $socket "value=", $value, "\n";
-			if ($value > 300) {
+			if ($value > $cutoff_pass) {
 				print $socket "opinion=good\n";
 			}
-			elsif ($value < -300) {
+			elsif ($value < -$cutoff_fail) {
 				print $socket "opinion=bad\n";
 			}
 			else {
@@ -306,12 +310,12 @@ sub respond_postfix {
 
 	my $value = $response->value($composite);
 	$value = 0 unless defined $value;
-	my $verdict = ($value > 300  ? "pass" :
-				   $value < -300 ? "fail" :
-				                   "neutral");
+	my $verdict = ($value > $cutoff_pass ? "pass" :
+				   $value < $cutoff_fail ? "fail" :
+				                           "neutral");
 
 	my @prepend_string = ("prepend",
-						  "X-Karma",
+						  "X-Karma:",
 						  "verdict=$verdict",
 						  "score=$value",
 						  "comment=$data");
@@ -326,12 +330,12 @@ sub respond_postfix {
 	my $prepend_string = join (" ", @prepend_string) . "\n";
 
 	if ($action eq "prepend")   {
-		print $socket $prepend_string;
+		print $socket "action=$prepend_string";
 	}
 	elsif ($action eq "reject") {
-		if ($verdict eq "pass") { print $socket "permit\n"; }
-		if ($verdict eq "fail") { print $socket "reject karma scored too low: $value ($data)\n"; }
-		else                    { print $socket $prepend_string; }
+		if ($verdict eq "pass") { print $socket "action=permit\n"; }
+		if ($verdict eq "fail") { print $socket "action=reject karma scored too low: $value ($data)\n"; }
+		else                    { print $socket "action=$prepend_string"; }
 	}
 	print $socket "\n";
 }
@@ -366,6 +370,17 @@ provided with Mail::Karmasphere::Client.
 
 If not specified, defaults to C<exim>.
 
+=item --cutoff-pass
+=item --cutoff-fail
+
+Recommended.
+
+Scores below C<cutoff-fail> will turn into a "fail/reject".
+Scores above C<cutoff-pass> will turn into a "pass".  You
+should set these thresholds yourself: Karmasphere provides
+the score, but you decide policy.  If you do not, they will
+default to +300 and -300.
+
 =item --action
 
 Optional.
@@ -373,8 +388,8 @@ Optional.
 If you're running postfix, you can set --action to one of
 C<prepend> (default) or C<reject>.  Prepend will prepend an
 X-Karma header.  Reject will cause any mail with a karma
-score below -300 to be rejected.  Use this only if you are
-happy with the results you've observed.
+score below C<cutoff-fail> to be rejected.  Use this only if
+you are happy with the results you've observed.
 
 If not specified, defaults to C<prepend>.
 
