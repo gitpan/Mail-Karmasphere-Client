@@ -6,7 +6,8 @@ eg/spamassassin/26_karmasphere.cf
 karma-publish
 karmac
 karmaclient
-karmad
+karmad-exim
+karmad-postfix
 karmasquid
 lib/Mail/Karmasphere/Client.pm
 lib/Mail/Karmasphere/Parser/Base.pm

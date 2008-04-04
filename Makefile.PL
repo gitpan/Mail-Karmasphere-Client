@@ -5,7 +5,8 @@ use ExtUtils::MakeMaker;
 my @programs = ();
 for (split "\n", <<'QUERIES') {
 karmaclient|y|Karmasphere command line query client
-karmad|y|Karmasphere postfix/exim daemon
+karmad-exim|y|Karmasphere exim policy daemon
+karmad-postfix|y|Karmasphere Postfix policy daemon
 karma-publish|y|Karmasphere feed publisher command
 QUERIES
 	my ($program, $default, $description) = split /\|/, $_;
@@ -61,6 +62,7 @@ WriteMakefile(
 				'HTTP::Request'		=> 0,
 				'YAML'				=> 0,
 				'Lingua::EN::Inflect' => 0,
+				'Unix::Syslog'      => 0,
 			},
 	ABSTRACT_FROM => 'lib/Mail/Karmasphere/Client.pm',
 	AUTHOR		=> 'Shevek <cpan@anarres.org>',

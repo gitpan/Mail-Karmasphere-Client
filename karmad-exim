@@ -8,6 +8,12 @@ use IO::Socket;
 use IO::Select;
 use Getopt::Long;
 use Mail::Karmasphere::Client qw(:all);
+use Unix::Syslog qw(:macros :subs);
+
+# 
+# TODO
+#   log to syslog separately
+# 
 
 $PORT_DEFAULT = 8555;
 
@@ -20,12 +26,13 @@ usage: karmad
              [--feedset=karmasphere.email-sender]
              [--mta=postfix|EXIM]
              [--action=PREPEND|reject]
+             [--syslog]
 EOUSAGE
 }
 
 my $help;
 my ($server, $user, $group, $port, $path, $login, $pass);
-my ($mta, $action, $verbose_header, $cutoff_fail, $cutoff_pass);
+my ($mta, $action, $verbose_header, $cutoff_fail, $cutoff_pass, $syslog);
 my $composite = "karmasphere.email-sender";
 my $sockaddr = "/tmp/karmad";
 my ($socketuser,$socketgroup,$socketmode);
@@ -48,11 +55,19 @@ my $result = GetOptions(
 	"verbose-headers" => \$verbose_header,
 	"cutoff-fail=i"   => \$cutoff_fail,
 	"cutoff-pass=i"   => \$cutoff_pass,
+	"syslog"		=> \$syslog,
 );
 
 $mta ||= "exim";
 $cutoff_pass = +300 if not defined $cutoff_pass;
 $cutoff_fail = -300 if not defined $cutoff_fail;
+
+if ($syslog) { $syslog = LOG_MAIL }
+
+openlog "karmad", LOG_PID, $syslog if $syslog;
+syslog (LOG_INFO, "starting. mta=%s server=%s feedset=%s action=%s", $mta, $server, $composite, $action) if $syslog;
+syslog (LOG_DEBUG, "starting. cutoff-fail=%s, cutoff-pass=%s, verbose-header=%s", $cutoff_fail, $cutoff_pass, $verbose_header) if $syslog;
+syslog (LOG_DEBUG, "starting. username=%s password=%s", $login, map { "x" x length($_) } $pass) if $syslog;
 
 if (!$result or $help) {
 	usage();
@@ -107,6 +122,8 @@ if ($sockaddr =~ /\D/) {
 		chmod(oct($socketmode), $sockaddr)
 				or die "chmod($socketmode, $sockaddr) failed";
 	}
+	syslog LOG_INFO, "listening on %s", $sockaddr if $syslog;
+
 }
 else {
 	$listen = new IO::Socket::INET(
@@ -116,6 +133,7 @@ else {
 		ReuseAddr	=> 1
 			)
 		or die "Failed to create socket: $!";
+	syslog LOG_INFO, "listening on %s", $sockaddr if $syslog;
 }
 
 unless ($>) {
@@ -169,6 +187,8 @@ while (my $socket = $listen->accept()) {
 		exit;
 	}
 
+	syslog LOG_INFO, "handling new connection" if $syslog;
+
 	my $fh = select($socket);
 	$| = 1;
 	select($fh);
@@ -187,6 +207,7 @@ while (my $socket = $listen->accept()) {
 	# Debugging.
 	for my $key (sort keys %in) {
 		print STDERR "$key = $in{$key}\n" if -t STDERR;
+		syslog LOG_DEBUG, "$key = $in{$key}" if $syslog;
 	}
 
 	my $query_id = join('-', 'karmad', time(), ($in{queue_id} || ()));
@@ -214,6 +235,7 @@ while (my $socket = $listen->accept()) {
 	my $client = new Mail::Karmasphere::Client(%mkcargs);
 
 	print STDERR "sending query \"@{[$query->as_string]}\"\n" if -t STDERR;
+	syslog LOG_DEBUG, "sending query %s", $query->as_string if $syslog;
 	my $response = $client->ask($query);
 
 	respond(response  => $response,
@@ -233,10 +255,45 @@ while (my $socket = $listen->accept()) {
 
 sub respond {
 	my %param     = @_;
-	my ($response, $socket, $composite) = @param{qw(response socket composite)};
+	my ($response, $socket, $composite, $query) = @param{qw(response socket composite query)};
 
 	if ($mta eq "postfix") { respond_postfix(@_); }
 	else                   { respond_generic(@_); }
+
+	if ($syslog)           { respond_syslog(@_); }
+}
+
+### 
+### --------------------------------------------------------- syslog
+### 
+
+sub respond_syslog {
+	my %param     = @_;
+	my ($response, $socket, $composite, $query) = @param{qw(response socket composite query)};
+
+	if (not $response) {
+		syslog LOG_DEBUG, "response: no response";
+	}
+	else {
+		my $value = $response->value($composite);
+		$value = 0 unless defined $value;
+		my $verdict = ($value > $cutoff_pass ? "pass" :
+					   $value < $cutoff_fail ? "fail" :
+					   "neutral");
+
+		my $data = $response->data($composite);
+		$data = '(null data)' unless defined $data;
+
+		syslog (LOG_DEBUG,
+				"response: verdict=%s score=%s comment=%s",
+				$verdict, $value, $data);
+		
+		syslog (LOG_DEBUG,
+				"response: query_id=%s identities=%s",
+				$query->id,
+				$query->identities_as_humanreadable_string,
+				);
+	}
 }
 
 ### 
@@ -451,6 +508,10 @@ this.
 
 When running, setuid to this user and group.  Defaults to
 'nobody', 'nobody'.  You probably don't need to set this.
+
+=item --syslog
+
+Syslog verbosely to mail.info and mail.debug.
 
 =back
 
